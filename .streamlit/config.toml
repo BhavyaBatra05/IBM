@@ -1,9 +1,24 @@
 [server]
 headless = true
+enableCORS = true
+enableXsrfProtection = true
+maxUploadSize = 200
+maxMessageSize = 200
+runOnSave = true
+port = 8501
+fileWatcherType = "auto"
 
 [browser]
 gatherUsageStats = false
+serverAddress = "localhost"
 
 [theme]
 base = "dark"
 primaryColor = "#00f5ff"
+
+[runner]
+fastReruns = true
+magicEnabled = true
+
+[deprecation]
+showfileUploaderEncoding = false

@@ -19,11 +19,47 @@ st.set_page_config(
 import sys
 import os
 import time
+import socket
+import subprocess
+from contextlib import contextmanager
+
+# Function to wait for supervisor connection on cloud deployment
+def wait_for_supervisor(max_retries=5, retry_delay=2):
+    """Wait for the supervisor socket to be available (for cloud deployments)"""
+    supervisor_path = '/mount/admin/.supervisor.sock'
+    
+    # Only attempt connection on Linux/Unix platforms (where Streamlit deploys)
+    if not os.path.exists(supervisor_path) or sys.platform.startswith('win'):
+        return True
+        
+    for i in range(max_retries):
+        try:
+            # Check if socket file exists and platform supports Unix sockets
+            if hasattr(socket, 'AF_UNIX'):
+                s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                s.settimeout(3)
+                s.connect(supervisor_path)
+                s.close()
+                print("✅ Successfully connected to supervisor socket")
+                return True
+        except (socket.error, FileNotFoundError):
+            print(f"⏳ Waiting for supervisor socket (attempt {i+1}/{max_retries})...")
+            
+        time.sleep(retry_delay)
+    
+    print("⚠️ Could not connect to supervisor socket, but continuing anyway...")
+    return False
 
 # Add retry logic for startup resilience on cloud platforms with improved nested import handling
-def import_with_retry(module_name, max_retries=3, retry_delay=2):
+def import_with_retry(module_name, max_retries=5, retry_delay=3, timeout=60):
     """Try to import a module with retries for cloud deployment resilience"""
+    start_time = time.time()
     for i in range(max_retries):
+        # Check timeout to prevent hanging during deployment
+        if time.time() - start_time > timeout:
+            print(f"Import timeout after {timeout}s for {module_name}")
+            return False
+            
         try:
             if module_name == 'pysqlite3':
                 __import__(module_name)
@@ -80,6 +116,13 @@ def load_env():
                     value = value.strip('"\'')
                     os.environ[key] = value
 
+# Check if we're in a cloud deployment and wait for supervisor if needed
+is_cloud_deployment = os.path.exists('/mount/admin')
+if is_cloud_deployment:
+    print("📦 Cloud deployment detected, checking for supervisor service...")
+    wait_for_supervisor(max_retries=10, retry_delay=3)
+
+# Load environment variables
 load_env()
 
 # Imports after env loading

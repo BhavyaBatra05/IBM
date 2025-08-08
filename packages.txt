@@ -8,3 +8,7 @@ libssl-dev
 libffi-dev
 gcc
 g++
+supervisor
+libblas-dev
+liblapack-dev
+gfortran

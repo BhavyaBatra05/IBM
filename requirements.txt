@@ -15,15 +15,17 @@ python-docx
 docx2txt
 
 # Vector storage - ChromaDB with SQLite compatibility
-chromadb
-pysqlite3-binary
+chromadb>=0.4.18
+pysqlite3-binary>=0.5.1
 
 # Translation services - Facebook NLLB-200
-torch
-transformers==4.30.0  # Pinning specific version for stability
+--find-links https://download.pytorch.org/whl/torch_stable.html
+torch>=2.0.0
+transformers>=4.30.0
 accelerate>=0.20.3  # Required for transformers pipeline
 sentencepiece>=0.1.99
 sacremoses>=0.0.53  # Required for NLLB models
+protobuf>=4.23.0
 
 # Basic utilities
 requests
