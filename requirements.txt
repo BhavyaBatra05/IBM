@@ -2,27 +2,27 @@
 # Full functionality matching local development environment
 
 # Streamlit for web interface
-streamlit>=1.28.0
+streamlit
 
 # Groq LLM integration  
-langchain-groq>=0.1.0
-langchain-core>=0.1.0
-langchain-community>=0.0.10
+langchain-groq
+langchain-core
+langchain-community
 
 # Document processing
-pypdf>=3.17.0
-python-docx>=0.8.11
-docx2txt>=0.8
+pypdf
+python-docx
+docx2txt
 
 # Vector storage - ChromaDB with SQLite compatibility
-chromadb>=0.4.24
-pysqlite3-binary>=0.5.0
+chromadb
+pysqlite3-binary
 
 # Translation services - Facebook NLLB-200
-torch>=2.0.0
-transformers>=4.30.0
-sentencepiece>=0.1.95
+torch
+transformers
+sentencepiece
 
 # Basic utilities
-requests>=2.25.0
-pydantic>=2.0.0
+requests
+pydantic
