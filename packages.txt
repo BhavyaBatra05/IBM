@@ -1,5 +1,22 @@
+<<<<<<< HEAD
 libsqlite3-dev
 cmake
 pkg-config
 build-essential
 python3-dev
+=======
+python3-dev
+build-essential
+cmake
+pkg-config
+sqlite3
+libsqlite3-dev
+libssl-dev
+libffi-dev
+gcc
+g++
+supervisor
+libblas-dev
+liblapack-dev
+gfortran
+>>>>>>> 7a6703ecd75303c696db88931f286d0097da6b82

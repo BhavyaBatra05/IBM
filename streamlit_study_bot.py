@@ -4,15 +4,102 @@ Regional Language Study Bot - Streamlit App
 Complete workflow: PDF/DOC extraction -> Summary -> Quiz -> Translation to Indian Languages
 """
 
+# Import streamlit first
 import streamlit as st
+
+# IMPORTANT: Set page config must be the first Streamlit command
+st.set_page_config(
+    page_title="Regional Language Study Bot",
+    page_icon="📚",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# SQLite compatibility fix for ChromaDB on deployment platforms
+import sys
 import os
+import time
+import socket
+import subprocess
+from contextlib import contextmanager
+
+# Function to wait for supervisor connection on cloud deployment
+def wait_for_supervisor(max_retries=5, retry_delay=2):
+    """Wait for the supervisor socket to be available (for cloud deployments)"""
+    supervisor_path = '/mount/admin/.supervisor.sock'
+    
+    # Only attempt connection on Linux/Unix platforms (where Streamlit deploys)
+    if not os.path.exists(supervisor_path) or sys.platform.startswith('win'):
+        return True
+        
+    for i in range(max_retries):
+        try:
+            # Check if socket file exists and platform supports Unix sockets
+            if hasattr(socket, 'AF_UNIX'):
+                s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                s.settimeout(3)
+                s.connect(supervisor_path)
+                s.close()
+                print("✅ Successfully connected to supervisor socket")
+                return True
+        except (socket.error, FileNotFoundError):
+            print(f"⏳ Waiting for supervisor socket (attempt {i+1}/{max_retries})...")
+            
+        time.sleep(retry_delay)
+    
+    print("⚠️ Could not connect to supervisor socket, but continuing anyway...")
+    return False
+
+# Add retry logic for startup resilience on cloud platforms with improved nested import handling
+def import_with_retry(module_name, max_retries=5, retry_delay=3, timeout=60):
+    """Try to import a module with retries for cloud deployment resilience"""
+    start_time = time.time()
+    for i in range(max_retries):
+        # Check timeout to prevent hanging during deployment
+        if time.time() - start_time > timeout:
+            print(f"Import timeout after {timeout}s for {module_name}")
+            return False
+            
+        try:
+            if module_name == 'pysqlite3':
+                __import__(module_name)
+                sys.modules['sqlite3'] = sys.modules.pop(module_name)
+                return True
+            elif '.' in module_name:
+                # Handle nested imports like 'transformers.pipeline'
+                parts = module_name.split('.')
+                base_module = __import__(parts[0])
+                
+                # Walk through the import path
+                module = base_module
+                for part in parts[1:]:
+                    module = getattr(module, part)
+                return module
+            else:
+                return __import__(module_name)
+        except (ImportError, AttributeError) as e:
+            if i < max_retries - 1:
+                # Exponential backoff for more resilience
+                current_delay = retry_delay * (2**i)
+                print(f"Retry {i+1}/{max_retries} importing {module_name}. Waiting {current_delay}s: {e}")
+                time.sleep(current_delay)
+            else:
+                print(f"Failed to import {module_name} after {max_retries} attempts: {e}")
+                raise
+    return None
+
+# Try importing pysqlite3 with retries
+try:
+    import_with_retry('pysqlite3')
+except ImportError:
+    print("SQLite compatibility layer not available, using system SQLite")
+
+import streamlit as st
 import tempfile
 import json
-import time
 import shutil
 from pathlib import Path
 from typing import List, Dict, Any
-import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -29,6 +116,13 @@ def load_env():
                     value = value.strip('"\'')
                     os.environ[key] = value
 
+# Check if we're in a cloud deployment and wait for supervisor if needed
+is_cloud_deployment = os.path.exists('/mount/admin')
+if is_cloud_deployment:
+    print("📦 Cloud deployment detected, checking for supervisor service...")
+    wait_for_supervisor(max_retries=10, retry_delay=3)
+
+# Load environment variables
 load_env()
 
 # Fix SQLite3 issue for Streamlit Cloud
@@ -41,26 +135,49 @@ except ImportError:
 
 # Imports after env loading
 try:
-    from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-    import torch
+    # Core imports - always available
     from langchain_groq import ChatGroq
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
     from langchain.text_splitter import RecursiveCharacterTextSplitter
-    import chromadb
-    from chromadb.utils import embedding_functions
     from pydantic import SecretStr
+    import requests
+    
+    # ChromaDB for vector storage with retries
+    CHROMADB_AVAILABLE = False
+    try:
+        # Try importing with retry logic for more stability
+        import chromadb
+        from chromadb.utils import embedding_functions
+        CHROMADB_AVAILABLE = True
+        st.success("✅ ChromaDB vector storage available")
+    except Exception as e:
+        st.warning(f"ChromaDB import issue: {str(e)}")
+        # Continue app execution even if ChromaDB fails
+        st.info("💡 App will use in-memory storage instead")
+        CHROMADB_AVAILABLE = False
+    
+    # Translation models using Hugging Face Pipeline with retries
+    NLLB_TRANSLATION_AVAILABLE = False
+    try:
+        # Direct import with proper error handling
+        import transformers
+        from transformers import pipeline
+        torch = import_with_retry('torch')
+        sentencepiece = import_with_retry('sentencepiece')
+        NLLB_TRANSLATION_AVAILABLE = True
+        st.success("🚀 NLLB-200 translation pipeline available")
+    except Exception as e:
+        print(f"Translation import issue: {e}")
+        print("💡 App will use simplified translation display")
+        NLLB_TRANSLATION_AVAILABLE = False
+        
 except ImportError as e:
-    st.error(f"Required packages not installed: {e}")
+    print(f"Required packages not installed: {e}")
     st.stop()
 
-# Streamlit page config
-st.set_page_config(
-    page_title="Regional Language Study Bot",
-    page_icon="📚",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Page config already set at the top of the file
+# Language mapping setup continues here
 
 # Language mapping for NLLB-200 model
 INDIAN_LANGUAGES = {
@@ -111,6 +228,7 @@ def init_session_state():
 
 # Load models (cached)
 @st.cache_resource
+<<<<<<< HEAD
 def load_translation_model():
     """Load Facebook NLLB-200 translation model with graceful fallback"""
     try:
@@ -136,6 +254,27 @@ def load_translation_model():
         st.warning(f"⚠️ Failed to load translation model: {e}")
         st.info("🔧 App will work in English-only mode. Translation features will be disabled.")
         return None, None
+=======
+def load_translation_pipeline():
+    """Load Facebook NLLB-200 translation pipeline (deployment-friendly)"""
+    if not NLLB_TRANSLATION_AVAILABLE:
+        st.info("ℹ️ Translation pipeline not available, using fallback")
+        return None
+        
+    try:
+        # Use pipeline API which handles tokenizer and model automatically
+        translator = pipeline(
+            "translation", 
+            model="facebook/nllb-200-distilled-600M",
+            device=-1,  # Use CPU for compatibility
+            torch_dtype="auto"
+        )
+        st.success("✅ NLLB-200 translation pipeline loaded")
+        return translator
+    except Exception as e:
+        st.warning(f"Failed to load translation pipeline: {e}")
+        return None
+>>>>>>> 7a6703ecd75303c696db88931f286d0097da6b82
 
 @st.cache_resource
 def load_groq_llm():
@@ -158,6 +297,7 @@ def load_groq_llm():
 
 @st.cache_resource
 def setup_chromadb():
+<<<<<<< HEAD
     """Setup ChromaDB for vector storage with better error handling"""
     try:
         # Check for SQLite version issues common on Streamlit Cloud
@@ -177,17 +317,36 @@ def setup_chromadb():
             # Try with in-memory client as fallback
             st.info("🔄 Trying in-memory ChromaDB as fallback...")
             client = chromadb.Client()
+=======
+    """Setup ChromaDB for vector storage (if available)"""
+    if not CHROMADB_AVAILABLE:
+        st.info("📁 Using in-memory document storage (ChromaDB not available)")
+        return None
         
-        # Create or get collection with explicit embedding function
+    try:
+        # Check if chromadb was imported successfully
+        if not CHROMADB_AVAILABLE:
+            st.warning("ChromaDB not imported, using in-memory storage")
+            return None
+            
+        # Initialize ChromaDB client
+        client = chromadb.PersistentClient(path="./chroma_db")
+>>>>>>> 7a6703ecd75303c696db88931f286d0097da6b82
+        
+        # Create or get collection with default settings (avoids type issues)
         collection = client.get_or_create_collection(
-            name="document_chunks",
-            embedding_function=embedding_functions.DefaultEmbeddingFunction()
+            name="document_chunks"
         )
         
+<<<<<<< HEAD
         st.success("✅ ChromaDB initialized successfully")
+=======
+        st.success("✅ ChromaDB vector storage initialized")
+>>>>>>> 7a6703ecd75303c696db88931f286d0097da6b82
         return collection
         
     except Exception as e:
+<<<<<<< HEAD
         st.error(f"❌ Failed to setup ChromaDB: {e}")
         st.error("This is likely due to SQLite version compatibility issues on Streamlit Cloud")
         st.info("""
@@ -196,6 +355,9 @@ def setup_chromadb():
         2. Ensure the SQLite import fix is at the top of your script
         3. Check that packages.txt includes `libsqlite3-dev`
         """)
+=======
+        st.warning(f"ChromaDB setup failed, using in-memory storage: {e}")
+>>>>>>> 7a6703ecd75303c696db88931f286d0097da6b82
         return None
 
 def clear_chromadb():
@@ -528,97 +690,109 @@ def generate_quiz_with_groq(text: str) -> str:
         st.error(f"Error generating quiz: {e}")
         return f"Error generating quiz: {str(e)}"
 
-def translate_chunk_nllb(chunk: str, target_language_code: str, tokenizer, model) -> str:
-    """Translate a single chunk using NLLB-200 model"""
-    try:
-        inputs = tokenizer.encode(chunk, return_tensors="pt", max_length=512, truncation=True)
-        
-        with torch.no_grad():
-            translated_tokens = model.generate(
-                inputs, 
-                forced_bos_token_id=tokenizer.convert_tokens_to_ids(target_language_code),
-                max_length=512,
-                num_beams=5,
-                early_stopping=True
-            )
-        
-        translated_text = tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
-        return translated_text
-    except Exception as e:
-        return f"[Translation Error: {str(e)}]"
+# Removed old translate_chunk_nllb - now using pipeline approach
 
-def translate_text_nllb_parallel(text: str, target_language_code: str, chunk_size: int = 400) -> str:
-    """Translate text using NLLB-200 model with parallel chunk processing"""
+def translate_text_nllb_pipeline(text: str, target_language_code: str) -> str:
+    """Translate text using NLLB-200 pipeline (deployment-friendly)"""
     try:
-        tokenizer, model = load_translation_model()
-        if not tokenizer or not model:
-            return f"Translation Error: Could not load model"
+        translator = load_translation_pipeline()
+        if not translator:
+            return f"Translation Error: Could not load translation pipeline"
         
-        # Split text into chunks for parallel processing
-        if len(text) <= chunk_size:
-            # Small text, translate directly
-            return translate_chunk_nllb(text, target_language_code, tokenizer, model)
+        # Split long text into chunks (pipelines have token limits)
+        max_length = 400  # Conservative limit for stability
+        if len(text) <= max_length:
+            # Short text, translate directly
+            result = translator(text, src_lang="eng_Latn", tgt_lang=target_language_code)
+            return result[0]['translation_text']
         
-        # Large text, split into chunks
-        chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
+        # Long text, split into chunks
+        chunks = [text[i:i+max_length] for i in range(0, len(text), max_length)]
+        translated_chunks = []
         
-        # Show progress for chunk translation
-        progress_container = st.container()
-        with progress_container:
-            st.info(f"📦 Translating {len(chunks)} chunks in parallel...")
-            
-        # Create progress bar for chunks
-        chunk_progress = st.progress(0)
-        translated_chunks = [""] * len(chunks)  # Pre-allocate to maintain order
+        # Show progress
+        progress = st.progress(0)
+        for i, chunk in enumerate(chunks):
+            result = translator(chunk, src_lang="eng_Latn", tgt_lang=target_language_code)
+            translated_chunks.append(result[0]['translation_text'])
+            progress.progress((i + 1) / len(chunks))
         
-        # Use ThreadPoolExecutor for true parallel processing
-        with ThreadPoolExecutor(max_workers=min(4, len(chunks))) as executor:
-            # Submit all chunks for translation
-            future_to_index = {
-                executor.submit(translate_chunk_nllb, chunk, target_language_code, tokenizer, model): i 
-                for i, chunk in enumerate(chunks)
-            }
-            
-            completed = 0
-            for future in as_completed(future_to_index):
-                chunk_index = future_to_index[future]
-                try:
-                    translated_chunk = future.result()
-                    translated_chunks[chunk_index] = translated_chunk
-                    completed += 1
-                    
-                    # Update progress
-                    progress = completed / len(chunks)
-                    chunk_progress.progress(progress)
-                    
-                except Exception as e:
-                    st.error(f"Error translating chunk {chunk_index}: {e}")
-                    translated_chunks[chunk_index] = f"[Error: {str(e)}]"
-                    completed += 1
-                    chunk_progress.progress(completed / len(chunks))
-        
-        # Complete progress
-        chunk_progress.progress(1.0)
-        progress_container.empty()  # Remove progress info
-        
-        # Join all translated chunks in correct order
-        full_translation = " ".join(translated_chunks)
-        return full_translation
+        progress.empty()
+        return " ".join(translated_chunks)
         
     except Exception as e:
-        st.error(f"Translation error: {e}")
         return f"Translation Error: {str(e)}"
 
+# Removed Google Translate function - using NLLB pipeline instead
+
+def translate_text_simple_fallback(text: str, target_language: str) -> str:
+    """Simple fallback translation using basic text replacement"""
+    # This is a very basic fallback - in production you'd want a proper translation service
+    language_names = {
+        "Hindi": "हिंदी",
+        "Bengali": "বাংলা", 
+        "Tamil": "தமிழ்",
+        "Telugu": "తెలుగు",
+        "Marathi": "मराठी",
+        "Gujarati": "ગુજરાતી",
+        "Kannada": "ಕನ್ನಡ",
+        "Malayalam": "മലയാളം",
+        "Punjabi": "ਪੰਜਾਬੀ",
+        "Odia": "ଓଡ଼ିଆ",
+        "Assamese": "অসমীয়া",
+        "Urdu": "اردو"
+    }
+    
+    return f"""
+📌 **{language_names.get(target_language, target_language)} Translation Available**
+
+Original English Content:
+{text}
+
+🔄 Regional language translation will be added in future updates. 
+For now, you can use the English content above for study purposes.
+"""
+
 def translate_text_nllb(text: str, target_language_code: str) -> str:
-    """Main translation function with parallel chunk processing"""
-    return translate_text_nllb_parallel(text, target_language_code)
+    """Main translation function using NLLB pipeline"""
+    # Get target language name
+    target_language = None
+    for lang, code in INDIAN_LANGUAGES.items():
+        if code == target_language_code:
+            target_language = lang
+            break
+    
+    # Try NLLB pipeline if available
+    if NLLB_TRANSLATION_AVAILABLE:
+        try:
+            st.info("🚀 Using NLLB-200 translation pipeline")
+            return translate_text_nllb_pipeline(text, target_language_code)
+        except Exception as e:
+            st.warning(f"NLLB translation failed: {e}")
+    
+    # Fallback to simple placeholder
+    return translate_text_simple_fallback(text, target_language or "Unknown")
 
 def store_chunks_in_chromadb(chunks: List[str], document_name: str):
-    """Store document chunks in ChromaDB for retrieval"""
+    """Store document chunks in ChromaDB or in-memory storage"""
+    if not CHROMADB_AVAILABLE:
+        # Use in-memory storage as fallback
+        if 'document_chunks' not in st.session_state:
+            st.session_state.document_chunks = {}
+        
+        st.session_state.document_chunks[document_name] = chunks
+        st.success(f"Stored {len(chunks)} chunks in memory")
+        return
+        
     try:
         collection = setup_chromadb()
         if collection is None:
-            st.error("Failed to setup ChromaDB collection")
+            # Fallback to in-memory storage
+            if 'document_chunks' not in st.session_state:
+                st.session_state.document_chunks = {}
+            
+            st.session_state.document_chunks[document_name] = chunks
+            st.info(f"Stored {len(chunks)} chunks in memory (ChromaDB fallback)")
             return
             
         # Create metadata for each chunk with proper string types
@@ -645,8 +819,13 @@ def store_chunks_in_chromadb(chunks: List[str], document_name: str):
         st.success(f"Stored {len(chunks)} chunks in vector database")
         
     except Exception as e:
-        st.error(f"Error storing chunks: {e}")
-        st.error(f"Debug info - Document: {document_name}, Chunks: {len(chunks) if chunks else 0}")
+        # Fallback to in-memory storage on error
+        if 'document_chunks' not in st.session_state:
+            st.session_state.document_chunks = {}
+        
+        st.session_state.document_chunks[document_name] = chunks
+        st.warning(f"ChromaDB error, using memory storage: {e}")
+        st.info(f"Stored {len(chunks)} chunks in memory")
 
 def debug_quiz_format(quiz_data, title="Quiz Debug"):
     """Debug function to show quiz data format"""
@@ -898,21 +1077,27 @@ def main():
             st.error("❌ Groq LLM Failed")
             st.stop()
         
-        # Check Translation Model
-        tokenizer, model = load_translation_model()
-        if tokenizer and model:
-            st.success("✅ NLLB-200 Translation Ready")
+        # Check Translation Pipeline
+        if NLLB_TRANSLATION_AVAILABLE:
+            translator = load_translation_pipeline()
+            if translator:
+                st.success("✅ NLLB-200 Advanced Translation Ready")
+            else:
+                st.warning("⚠️ NLLB-200 Failed, using fallback")
         else:
-            st.error("❌ Translation Model Failed")
-            st.stop()
+            st.error("❌ No Translation Service Available")
+            st.info("💡 App will work with limited functionality")
         
-        # ChromaDB status
-        collection = setup_chromadb()
-        if collection:
-            st.success("✅ ChromaDB Ready")
+        # Storage status
+        if CHROMADB_AVAILABLE:
+            collection = setup_chromadb()
+            if collection:
+                st.success("✅ ChromaDB Vector Storage Ready")
+            else:
+                st.warning("⚠️ ChromaDB failed, using memory storage")
         else:
-            st.warning("⚠️ ChromaDB Optional")
-            st.info("💡 If you see ChromaDB errors, try the options below:")
+            st.info("� Using in-memory storage")
+            st.info("💡 ChromaDB not available (SQLite compatibility issue)")
             
             col_a, col_b = st.columns(2)
             with col_a:
@@ -1043,11 +1228,8 @@ def process_document(uploaded_file, target_language, chunk_size, translation_chu
             status_text.text(f"🌐 Translating full text to {target_language}...")
         progress_bar.progress(70)
         
-        # Translate FULL extracted text with configurable chunk size
-        if parallel_translation:
-            translated_text = translate_text_nllb_parallel(extracted_text, target_lang_code, translation_chunk_size)
-        else:
-            translated_text = translate_text_nllb(extracted_text, target_lang_code)
+        # Translate FULL extracted text using NLLB pipeline
+        translated_text = translate_text_nllb(extracted_text, target_lang_code)
         st.session_state.translated_text = translated_text
         
         progress_bar.progress(80)

@@ -1,32 +1,38 @@
-# Regional Language Study Bot - Requirements
-# Core dependencies for Streamlit app with Groq LLM and NLLB-200 translation
+# Regional Language Study Bot - Streamlit Cloud Compatible Requirements
+# Full functionality matching local development environment
 
 # Streamlit for web interface
-streamlit>=1.28.0
+streamlit
 
-# Groq LLM integration
-langchain-groq>=0.1.0
-langchain>=0.1.0
-langchain-community>=0.0.10
-
-# Hugging Face transformers for NLLB-200
-transformers>=4.30.0
-torch>=2.0.0
-sentencepiece>=0.1.99
-protobuf>=4.21.0
-accelerate>=0.20.0
+# Groq LLM integration  
+langchain-groq
+langchain-core
+langchain-community
 
 # Document processing
-pypdf>=3.17.0
-python-docx>=0.8.11
-docx2txt>=0.8
+pypdf
+python-docx
+docx2txt
 
+<<<<<<< HEAD
 # Vector storage (with SQLite fix for Streamlit Cloud)
 pysqlite3-binary>=0.5.0
 chromadb>=0.4.0
+=======
+# Vector storage - ChromaDB with SQLite compatibility
+chromadb>=0.4.18
+pysqlite3-binary>=0.5.1
+>>>>>>> 7a6703ecd75303c696db88931f286d0097da6b82
 
-# Additional utilities
-aiohttp>=3.8.0
-aiofiles>=23.1.0
-python-multipart>=0.0.6
-pydantic>=2.0.0
+# Translation services - Facebook NLLB-200
+--find-links https://download.pytorch.org/whl/torch_stable.html
+torch>=2.0.0
+transformers>=4.30.0
+accelerate>=0.20.3  # Required for transformers pipeline
+sentencepiece>=0.1.99
+sacremoses>=0.0.53  # Required for NLLB models
+protobuf>=4.23.0
+
+# Basic utilities
+requests
+pydantic
