@@ -4,23 +4,66 @@ Regional Language Study Bot - Streamlit App
 Complete workflow: PDF/DOC extraction -> Summary -> Quiz -> Translation to Indian Languages
 """
 
+# Import streamlit first
+import streamlit as st
+
+# IMPORTANT: Set page config must be the first Streamlit command
+st.set_page_config(
+    page_title="Regional Language Study Bot",
+    page_icon="📚",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 # SQLite compatibility fix for ChromaDB on deployment platforms
 import sys
+import os
+import time
+
+# Add retry logic for startup resilience on cloud platforms with improved nested import handling
+def import_with_retry(module_name, max_retries=3, retry_delay=2):
+    """Try to import a module with retries for cloud deployment resilience"""
+    for i in range(max_retries):
+        try:
+            if module_name == 'pysqlite3':
+                __import__(module_name)
+                sys.modules['sqlite3'] = sys.modules.pop(module_name)
+                return True
+            elif '.' in module_name:
+                # Handle nested imports like 'transformers.pipeline'
+                parts = module_name.split('.')
+                base_module = __import__(parts[0])
+                
+                # Walk through the import path
+                module = base_module
+                for part in parts[1:]:
+                    module = getattr(module, part)
+                return module
+            else:
+                return __import__(module_name)
+        except (ImportError, AttributeError) as e:
+            if i < max_retries - 1:
+                # Exponential backoff for more resilience
+                current_delay = retry_delay * (2**i)
+                print(f"Retry {i+1}/{max_retries} importing {module_name}. Waiting {current_delay}s: {e}")
+                time.sleep(current_delay)
+            else:
+                print(f"Failed to import {module_name} after {max_retries} attempts: {e}")
+                raise
+    return None
+
+# Try importing pysqlite3 with retries
 try:
-    __import__('pysqlite3')
-    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+    import_with_retry('pysqlite3')
 except ImportError:
-    pass
+    print("SQLite compatibility layer not available, using system SQLite")
 
 import streamlit as st
-import os
 import tempfile
 import json
-import time
 import shutil
 from pathlib import Path
 from typing import List, Dict, Any
-import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -49,38 +92,41 @@ try:
     from pydantic import SecretStr
     import requests
     
-    # ChromaDB for vector storage
+    # ChromaDB for vector storage with retries
     CHROMADB_AVAILABLE = False
     try:
+        # Try importing with retry logic for more stability
         import chromadb
         from chromadb.utils import embedding_functions
         CHROMADB_AVAILABLE = True
         st.success("✅ ChromaDB vector storage available")
     except Exception as e:
-        st.error(f"ChromaDB import failed: {e}")
+        st.warning(f"ChromaDB import issue: {str(e)}")
+        # Continue app execution even if ChromaDB fails
+        st.info("💡 App will use in-memory storage instead")
         CHROMADB_AVAILABLE = False
     
-    # Translation models using Hugging Face Pipeline
+    # Translation models using Hugging Face Pipeline with retries
     NLLB_TRANSLATION_AVAILABLE = False
     try:
+        # Direct import with proper error handling
+        import transformers
         from transformers import pipeline
+        torch = import_with_retry('torch')
+        sentencepiece = import_with_retry('sentencepiece')
         NLLB_TRANSLATION_AVAILABLE = True
         st.success("🚀 NLLB-200 translation pipeline available")
     except Exception as e:
-        st.error(f"Translation pipeline import failed: {e}")
+        print(f"Translation import issue: {e}")
+        print("💡 App will use simplified translation display")
         NLLB_TRANSLATION_AVAILABLE = False
         
 except ImportError as e:
-    st.error(f"Required packages not installed: {e}")
+    print(f"Required packages not installed: {e}")
     st.stop()
 
-# Streamlit page config
-st.set_page_config(
-    page_title="Regional Language Study Bot",
-    page_icon="📚",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Page config already set at the top of the file
+# Language mapping setup continues here
 
 # Language mapping for NLLB-200 model
 INDIAN_LANGUAGES = {
@@ -179,17 +225,16 @@ def setup_chromadb():
         
     try:
         # Check if chromadb was imported successfully
-        if 'chromadb' not in globals():
+        if not CHROMADB_AVAILABLE:
             st.warning("ChromaDB not imported, using in-memory storage")
             return None
             
         # Initialize ChromaDB client
         client = chromadb.PersistentClient(path="./chroma_db")
         
-        # Create or get collection with explicit embedding function
+        # Create or get collection with default settings (avoids type issues)
         collection = client.get_or_create_collection(
-            name="document_chunks",
-            embedding_function=embedding_functions.DefaultEmbeddingFunction()
+            name="document_chunks"
         )
         
         st.success("✅ ChromaDB vector storage initialized")

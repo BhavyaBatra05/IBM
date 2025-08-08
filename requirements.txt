@@ -20,8 +20,10 @@ pysqlite3-binary
 
 # Translation services - Facebook NLLB-200
 torch
-transformers
-sentencepiece
+transformers==4.30.0  # Pinning specific version for stability
+accelerate>=0.20.3  # Required for transformers pipeline
+sentencepiece>=0.1.99
+sacremoses>=0.0.53  # Required for NLLB models
 
 # Basic utilities
 requests
