@@ -2,7 +2,7 @@
 # Minimal dependencies for reliable deployment
 
 # Streamlit for web interface
-streamlit>=3.35.0
+streamlit>=1.28.0
 
 # Groq LLM integration  
 langchain-groq>=0.1.0
@@ -22,5 +22,6 @@ torch>=2.0.0
 requests>=2.25.0
 pydantic>=2.0.0
 
-# Optional: Vector storage (may cause SQLite issues on some cloud platforms)
+# Note: ChromaDB removed due to SQLite version compatibility issues on Streamlit Cloud
+# App will use in-memory storage as fallback
 # chromadb==0.4.24

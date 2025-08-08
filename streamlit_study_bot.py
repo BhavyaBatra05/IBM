@@ -172,6 +172,11 @@ def setup_chromadb():
         return None
         
     try:
+        # Check if chromadb was imported successfully
+        if 'chromadb' not in globals():
+            st.warning("ChromaDB not imported, using in-memory storage")
+            return None
+            
         # Initialize ChromaDB client
         client = chromadb.PersistentClient(path="./chroma_db")
         
