@@ -1,12 +1,12 @@
 # Regional Language Study Bot - Streamlit Cloud Compatible Requirements
-# Minimal dependencies for reliable deployment
+# Ultra-minimal dependencies for reliable deployment
 
 # Streamlit for web interface
 streamlit>=1.28.0
 
 # Groq LLM integration  
 langchain-groq>=0.1.0
-langchain>=0.1.0
+langchain-core>=0.1.0
 langchain-community>=0.0.10
 
 # Document processing
@@ -14,14 +14,10 @@ pypdf>=3.17.0
 python-docx>=0.8.11
 docx2txt>=0.8
 
-# Translation services - Hugging Face Transformers (lightweight)
-transformers>=4.30.0
-torch>=2.0.0
-
 # Basic utilities
 requests>=2.25.0
 pydantic>=2.0.0
 
-# Note: ChromaDB removed due to SQLite version compatibility issues on Streamlit Cloud
-# App will use in-memory storage as fallback
-# chromadb==0.4.24
+# Note: Translation temporarily disabled for deployment stability
+# Will use simple text display instead of actual translation
+# torch and transformers removed due to resource constraints on Streamlit Cloud

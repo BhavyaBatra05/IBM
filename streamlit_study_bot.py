@@ -61,8 +61,9 @@ try:
         from transformers import pipeline
         NLLB_TRANSLATION_AVAILABLE = True
         st.success("🚀 NLLB-200 translation pipeline available")
-    except ImportError:
-        st.warning("⚠️ Translation models not available, using fallback")
+    except Exception as e:
+        st.warning("⚠️ Translation models not available, using display fallback")
+        st.info("💡 For deployment stability, showing content in English with regional language labels")
         
 except ImportError as e:
     st.error(f"Required packages not installed: {e}")
