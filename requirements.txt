@@ -1,31 +1,29 @@
-# Regional Language Study Bot - Requirements
-# Core dependencies for Streamlit app with Groq LLM and NLLB-200 translation
+# Regional Language Study Bot - Streamlit Cloud Compatible Requirements
 
 # Streamlit for web interface
 streamlit>=1.28.0
 
-# Groq LLM integration
+# Groq LLM integration  
 langchain-groq>=0.1.0
 langchain>=0.1.0
 langchain-community>=0.0.10
 
-# Hugging Face transformers for NLLB-200
-transformers>=4.30.0
-torch>=2.0.0
-sentencepiece>=0.1.99
-protobuf>=4.21.0
-accelerate>=0.20.0
+# Lightweight translation service (fallback to Google Translate)
+googletrans==4.0.0rc1
 
 # Document processing
 pypdf>=3.17.0
 python-docx>=0.8.11
 docx2txt>=0.8
 
-# Vector storage
+# Lightweight vector storage
 chromadb>=0.4.0
 
-# Additional utilities
-aiohttp>=3.8.0
-aiofiles>=23.1.0
-python-multipart>=0.0.6
+# Basic utilities
+requests>=2.25.0
 pydantic>=2.0.0
+
+# Optional: Advanced translation (will install if possible)
+# transformers>=4.30.0
+# torch>=2.0.0  
+# sentencepiece>=0.1.99

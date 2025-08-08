@@ -33,8 +33,7 @@ load_env()
 
 # Imports after env loading
 try:
-    from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-    import torch
+    # Core imports - always available
     from langchain_groq import ChatGroq
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
@@ -42,6 +41,26 @@ try:
     import chromadb
     from chromadb.utils import embedding_functions
     from pydantic import SecretStr
+    import requests
+    
+    # Optional advanced translation models
+    ADVANCED_TRANSLATION_AVAILABLE = False
+    try:
+        from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+        import torch
+        ADVANCED_TRANSLATION_AVAILABLE = True
+        st.info("🚀 Advanced NLLB-200 translation model available")
+    except ImportError:
+        st.warning("⚠️ Advanced translation models not available, using alternative translation services")
+    
+    # Alternative translation services
+    try:
+        from googletrans import Translator
+        GOOGLE_TRANSLATE_AVAILABLE = True
+    except ImportError:
+        GOOGLE_TRANSLATE_AVAILABLE = False
+        st.warning("⚠️ Google Translate service not available")
+        
 except ImportError as e:
     st.error(f"Required packages not installed: {e}")
     st.stop()
@@ -104,7 +123,11 @@ def init_session_state():
 # Load models (cached)
 @st.cache_resource
 def load_translation_model():
-    """Load Facebook NLLB-200 translation model"""
+    """Load Facebook NLLB-200 translation model (if available)"""
+    if not ADVANCED_TRANSLATION_AVAILABLE:
+        st.info("ℹ️ Advanced translation model not available, using alternative services")
+        return None, None
+        
     try:
         model_name = "facebook/nllb-200-distilled-600M"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -113,6 +136,17 @@ def load_translation_model():
     except Exception as e:
         st.error(f"Failed to load translation model: {e}")
         return None, None
+
+@st.cache_resource  
+def load_google_translator():
+    """Load Google Translate service"""
+    if not GOOGLE_TRANSLATE_AVAILABLE:
+        return None
+    try:
+        return Translator()
+    except Exception as e:
+        st.error(f"Failed to load Google Translator: {e}")
+        return None
 
 @st.cache_resource
 def load_groq_llm():
@@ -562,9 +596,92 @@ def translate_text_nllb_parallel(text: str, target_language_code: str, chunk_siz
         st.error(f"Translation error: {e}")
         return f"Translation Error: {str(e)}"
 
+def translate_text_google(text: str, target_language_code: str) -> str:
+    """Translate text using Google Translate API"""
+    try:
+        translator = load_google_translator()
+        if not translator:
+            return f"Translation Error: Google Translate not available"
+        
+        # Map our language codes to Google Translate codes
+        google_lang_map = {
+            "hin_Deva": "hi",    # Hindi
+            "ben_Beng": "bn",    # Bengali
+            "tam_Taml": "ta",    # Tamil
+            "tel_Telu": "te",    # Telugu
+            "mar_Deva": "mr",    # Marathi
+            "guj_Gujr": "gu",    # Gujarati
+            "kan_Knda": "kn",    # Kannada
+            "mal_Mlym": "ml",    # Malayalam
+            "pan_Guru": "pa",    # Punjabi
+            "ory_Orya": "or",    # Odia
+            "asm_Beng": "as",    # Assamese
+            "urd_Arab": "ur",    # Urdu
+            "npi_Deva": "ne",    # Nepali
+            "san_Deva": "sa",    # Sanskrit
+        }
+        
+        google_lang = google_lang_map.get(target_language_code, "hi")  # Default to Hindi
+        
+        # Split large text into chunks for better translation
+        if len(text) > 4000:  # Google Translate has limits
+            chunks = [text[i:i+4000] for i in range(0, len(text), 4000)]
+            translated_chunks = []
+            
+            for chunk in chunks:
+                result = translator.translate(chunk, dest=google_lang)
+                translated_chunks.append(result.text)
+            
+            return " ".join(translated_chunks)
+        else:
+            result = translator.translate(text, dest=google_lang)
+            return result.text
+            
+    except Exception as e:
+        return f"Translation Error: {str(e)}"
+
+def translate_text_simple_fallback(text: str, target_language: str) -> str:
+    """Simple fallback translation using basic text replacement"""
+    # This is a very basic fallback - in production you'd want a proper translation service
+    language_names = {
+        "Hindi": "हिंदी",
+        "Bengali": "বাংলা", 
+        "Tamil": "தமிழ்",
+        "Telugu": "తెలుగు",
+        "Marathi": "मराठी",
+        "Gujarati": "ગુજરાતી",
+        "Kannada": "ಕನ್ನಡ",
+        "Malayalam": "മലയാളം",
+        "Punjabi": "ਪੰਜਾਬੀ",
+        "Odia": "ଓଡ଼ିଆ",
+        "Assamese": "অসমীয়া",
+        "Urdu": "اردو"
+    }
+    
+    return f"[{language_names.get(target_language, target_language)} Translation Not Available] {text[:200]}..."
+
 def translate_text_nllb(text: str, target_language_code: str) -> str:
-    """Main translation function with parallel chunk processing"""
-    return translate_text_nllb_parallel(text, target_language_code)
+    """Main translation function - tries NLLB-200, falls back to Google Translate"""
+    # First try advanced NLLB-200 model if available
+    if ADVANCED_TRANSLATION_AVAILABLE:
+        try:
+            return translate_text_nllb_parallel(text, target_language_code)
+        except Exception as e:
+            st.warning(f"NLLB-200 translation failed: {e}")
+    
+    # Fallback to Google Translate
+    if GOOGLE_TRANSLATE_AVAILABLE:
+        st.info("🌐 Using Google Translate service")
+        return translate_text_google(text, target_language_code)
+    
+    # Final fallback - simple placeholder
+    target_language = None
+    for lang, code in INDIAN_LANGUAGES.items():
+        if code == target_language_code:
+            target_language = lang
+            break
+    
+    return translate_text_simple_fallback(text, target_language or "Unknown")
 
 def store_chunks_in_chromadb(chunks: List[str], document_name: str):
     """Store document chunks in ChromaDB for retrieval"""
@@ -852,12 +969,21 @@ def main():
             st.stop()
         
         # Check Translation Model
-        tokenizer, model = load_translation_model()
-        if tokenizer and model:
-            st.success("✅ NLLB-200 Translation Ready")
+        if ADVANCED_TRANSLATION_AVAILABLE:
+            tokenizer, model = load_translation_model()
+            if tokenizer and model:
+                st.success("✅ NLLB-200 Advanced Translation Ready")
+            else:
+                st.warning("⚠️ NLLB-200 Failed, using fallback")
+        elif GOOGLE_TRANSLATE_AVAILABLE:
+            translator = load_google_translator()
+            if translator:
+                st.success("✅ Google Translate Ready")
+            else:
+                st.warning("⚠️ Google Translate Failed")
         else:
-            st.error("❌ Translation Model Failed")
-            st.stop()
+            st.error("❌ No Translation Service Available")
+            st.info("💡 App will work with limited functionality")
         
         # ChromaDB status
         collection = setup_chromadb()
