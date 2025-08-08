@@ -17,8 +17,9 @@ docx2txt>=0.8
 # Vector storage (optional)
 chromadb>=0.4.0
 
-# Translation services
-googletrans==4.0.0rc1
+# Translation services - Hugging Face Transformers (lightweight)
+transformers>=4.30.0
+torch>=2.0.0
 
 # Basic utilities
 requests>=2.25.0

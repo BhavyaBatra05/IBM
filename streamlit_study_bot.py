@@ -43,23 +43,14 @@ try:
     from pydantic import SecretStr
     import requests
     
-    # Optional advanced translation models
-    ADVANCED_TRANSLATION_AVAILABLE = False
+    # Translation models using Hugging Face Pipeline (deployment-friendly)
+    NLLB_TRANSLATION_AVAILABLE = False
     try:
-        from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-        import torch
-        ADVANCED_TRANSLATION_AVAILABLE = True
-        st.info("🚀 Advanced NLLB-200 translation model available")
+        from transformers import pipeline
+        NLLB_TRANSLATION_AVAILABLE = True
+        st.success("🚀 NLLB-200 translation pipeline available")
     except ImportError:
-        st.warning("⚠️ Advanced translation models not available, using alternative translation services")
-    
-    # Alternative translation services
-    try:
-        from googletrans import Translator
-        GOOGLE_TRANSLATE_AVAILABLE = True
-    except ImportError:
-        GOOGLE_TRANSLATE_AVAILABLE = False
-        st.warning("⚠️ Google Translate service not available")
+        st.warning("⚠️ Translation models not available, using fallback")
         
 except ImportError as e:
     st.error(f"Required packages not installed: {e}")
@@ -122,30 +113,24 @@ def init_session_state():
 
 # Load models (cached)
 @st.cache_resource
-def load_translation_model():
-    """Load Facebook NLLB-200 translation model (if available)"""
-    if not ADVANCED_TRANSLATION_AVAILABLE:
-        st.info("ℹ️ Advanced translation model not available, using alternative services")
-        return None, None
+def load_translation_pipeline():
+    """Load Facebook NLLB-200 translation pipeline (deployment-friendly)"""
+    if not NLLB_TRANSLATION_AVAILABLE:
+        st.info("ℹ️ Translation pipeline not available, using fallback")
+        return None
         
     try:
-        model_name = "facebook/nllb-200-distilled-600M"
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-        return tokenizer, model
+        # Use pipeline API which handles tokenizer and model automatically
+        translator = pipeline(
+            "translation", 
+            model="facebook/nllb-200-distilled-600M",
+            device=-1,  # Use CPU for compatibility
+            torch_dtype="auto"
+        )
+        st.success("✅ NLLB-200 translation pipeline loaded")
+        return translator
     except Exception as e:
-        st.error(f"Failed to load translation model: {e}")
-        return None, None
-
-@st.cache_resource  
-def load_google_translator():
-    """Load Google Translate service"""
-    if not GOOGLE_TRANSLATE_AVAILABLE:
-        return None
-    try:
-        return Translator()
-    except Exception as e:
-        st.error(f"Failed to load Google Translator: {e}")
+        st.warning(f"Failed to load translation pipeline: {e}")
         return None
 
 @st.cache_resource
@@ -515,130 +500,40 @@ def generate_quiz_with_groq(text: str) -> str:
         st.error(f"Error generating quiz: {e}")
         return f"Error generating quiz: {str(e)}"
 
-def translate_chunk_nllb(chunk: str, target_language_code: str, tokenizer, model) -> str:
-    """Translate a single chunk using NLLB-200 model"""
-    try:
-        inputs = tokenizer.encode(chunk, return_tensors="pt", max_length=512, truncation=True)
-        
-        with torch.no_grad():
-            translated_tokens = model.generate(
-                inputs, 
-                forced_bos_token_id=tokenizer.convert_tokens_to_ids(target_language_code),
-                max_length=512,
-                num_beams=5,
-                early_stopping=True
-            )
-        
-        translated_text = tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
-        return translated_text
-    except Exception as e:
-        return f"[Translation Error: {str(e)}]"
+# Removed old translate_chunk_nllb - now using pipeline approach
 
-def translate_text_nllb_parallel(text: str, target_language_code: str, chunk_size: int = 400) -> str:
-    """Translate text using NLLB-200 model with parallel chunk processing"""
+def translate_text_nllb_pipeline(text: str, target_language_code: str) -> str:
+    """Translate text using NLLB-200 pipeline (deployment-friendly)"""
     try:
-        tokenizer, model = load_translation_model()
-        if not tokenizer or not model:
-            return f"Translation Error: Could not load model"
-        
-        # Split text into chunks for parallel processing
-        if len(text) <= chunk_size:
-            # Small text, translate directly
-            return translate_chunk_nllb(text, target_language_code, tokenizer, model)
-        
-        # Large text, split into chunks
-        chunks = [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
-        
-        # Show progress for chunk translation
-        progress_container = st.container()
-        with progress_container:
-            st.info(f"📦 Translating {len(chunks)} chunks in parallel...")
-            
-        # Create progress bar for chunks
-        chunk_progress = st.progress(0)
-        translated_chunks = [""] * len(chunks)  # Pre-allocate to maintain order
-        
-        # Use ThreadPoolExecutor for true parallel processing
-        with ThreadPoolExecutor(max_workers=min(4, len(chunks))) as executor:
-            # Submit all chunks for translation
-            future_to_index = {
-                executor.submit(translate_chunk_nllb, chunk, target_language_code, tokenizer, model): i 
-                for i, chunk in enumerate(chunks)
-            }
-            
-            completed = 0
-            for future in as_completed(future_to_index):
-                chunk_index = future_to_index[future]
-                try:
-                    translated_chunk = future.result()
-                    translated_chunks[chunk_index] = translated_chunk
-                    completed += 1
-                    
-                    # Update progress
-                    progress = completed / len(chunks)
-                    chunk_progress.progress(progress)
-                    
-                except Exception as e:
-                    st.error(f"Error translating chunk {chunk_index}: {e}")
-                    translated_chunks[chunk_index] = f"[Error: {str(e)}]"
-                    completed += 1
-                    chunk_progress.progress(completed / len(chunks))
-        
-        # Complete progress
-        chunk_progress.progress(1.0)
-        progress_container.empty()  # Remove progress info
-        
-        # Join all translated chunks in correct order
-        full_translation = " ".join(translated_chunks)
-        return full_translation
-        
-    except Exception as e:
-        st.error(f"Translation error: {e}")
-        return f"Translation Error: {str(e)}"
-
-def translate_text_google(text: str, target_language_code: str) -> str:
-    """Translate text using Google Translate API"""
-    try:
-        translator = load_google_translator()
+        translator = load_translation_pipeline()
         if not translator:
-            return f"Translation Error: Google Translate not available"
+            return f"Translation Error: Could not load translation pipeline"
         
-        # Map our language codes to Google Translate codes
-        google_lang_map = {
-            "hin_Deva": "hi",    # Hindi
-            "ben_Beng": "bn",    # Bengali
-            "tam_Taml": "ta",    # Tamil
-            "tel_Telu": "te",    # Telugu
-            "mar_Deva": "mr",    # Marathi
-            "guj_Gujr": "gu",    # Gujarati
-            "kan_Knda": "kn",    # Kannada
-            "mal_Mlym": "ml",    # Malayalam
-            "pan_Guru": "pa",    # Punjabi
-            "ory_Orya": "or",    # Odia
-            "asm_Beng": "as",    # Assamese
-            "urd_Arab": "ur",    # Urdu
-            "npi_Deva": "ne",    # Nepali
-            "san_Deva": "sa",    # Sanskrit
-        }
+        # Split long text into chunks (pipelines have token limits)
+        max_length = 400  # Conservative limit for stability
+        if len(text) <= max_length:
+            # Short text, translate directly
+            result = translator(text, src_lang="eng_Latn", tgt_lang=target_language_code)
+            return result[0]['translation_text']
         
-        google_lang = google_lang_map.get(target_language_code, "hi")  # Default to Hindi
+        # Long text, split into chunks
+        chunks = [text[i:i+max_length] for i in range(0, len(text), max_length)]
+        translated_chunks = []
         
-        # Split large text into chunks for better translation
-        if len(text) > 4000:  # Google Translate has limits
-            chunks = [text[i:i+4000] for i in range(0, len(text), 4000)]
-            translated_chunks = []
-            
-            for chunk in chunks:
-                result = translator.translate(chunk, dest=google_lang)
-                translated_chunks.append(result.text)
-            
-            return " ".join(translated_chunks)
-        else:
-            result = translator.translate(text, dest=google_lang)
-            return result.text
-            
+        # Show progress
+        progress = st.progress(0)
+        for i, chunk in enumerate(chunks):
+            result = translator(chunk, src_lang="eng_Latn", tgt_lang=target_language_code)
+            translated_chunks.append(result[0]['translation_text'])
+            progress.progress((i + 1) / len(chunks))
+        
+        progress.empty()
+        return " ".join(translated_chunks)
+        
     except Exception as e:
         return f"Translation Error: {str(e)}"
+
+# Removed Google Translate function - using NLLB pipeline instead
 
 def translate_text_simple_fallback(text: str, target_language: str) -> str:
     """Simple fallback translation using basic text replacement"""
@@ -669,7 +564,7 @@ For now, you can use the English content above for study purposes.
 """
 
 def translate_text_nllb(text: str, target_language_code: str) -> str:
-    """Main translation function - tries Google Translate first, then fallback"""
+    """Main translation function using NLLB pipeline"""
     # Get target language name
     target_language = None
     for lang, code in INDIAN_LANGUAGES.items():
@@ -677,16 +572,15 @@ def translate_text_nllb(text: str, target_language_code: str) -> str:
             target_language = lang
             break
     
-    # Try Google Translate first if available
-    if GOOGLE_TRANSLATE_AVAILABLE:
+    # Try NLLB pipeline if available
+    if NLLB_TRANSLATION_AVAILABLE:
         try:
-            st.info("🌐 Using Google Translate service")
-            return translate_text_google(text, target_language_code)
+            st.info("🚀 Using NLLB-200 translation pipeline")
+            return translate_text_nllb_pipeline(text, target_language_code)
         except Exception as e:
-            st.warning(f"Google Translate failed: {e}")
+            st.warning(f"NLLB translation failed: {e}")
     
     # Fallback to simple placeholder
-    return translate_text_simple_fallback(text, target_language or "Unknown")
     return translate_text_simple_fallback(text, target_language or "Unknown")
 
 def store_chunks_in_chromadb(chunks: List[str], document_name: str):
@@ -974,19 +868,13 @@ def main():
             st.error("❌ Groq LLM Failed")
             st.stop()
         
-        # Check Translation Model
-        if ADVANCED_TRANSLATION_AVAILABLE:
-            tokenizer, model = load_translation_model()
-            if tokenizer and model:
+        # Check Translation Pipeline
+        if NLLB_TRANSLATION_AVAILABLE:
+            translator = load_translation_pipeline()
+            if translator:
                 st.success("✅ NLLB-200 Advanced Translation Ready")
             else:
                 st.warning("⚠️ NLLB-200 Failed, using fallback")
-        elif GOOGLE_TRANSLATE_AVAILABLE:
-            translator = load_google_translator()
-            if translator:
-                st.success("✅ Google Translate Ready")
-            else:
-                st.warning("⚠️ Google Translate Failed")
         else:
             st.error("❌ No Translation Service Available")
             st.info("💡 App will work with limited functionality")
@@ -1128,11 +1016,8 @@ def process_document(uploaded_file, target_language, chunk_size, translation_chu
             status_text.text(f"🌐 Translating full text to {target_language}...")
         progress_bar.progress(70)
         
-        # Translate FULL extracted text with configurable chunk size
-        if parallel_translation:
-            translated_text = translate_text_nllb_parallel(extracted_text, target_lang_code, translation_chunk_size)
-        else:
-            translated_text = translate_text_nllb(extracted_text, target_lang_code)
+        # Translate FULL extracted text using NLLB pipeline
+        translated_text = translate_text_nllb(extracted_text, target_lang_code)
         st.session_state.translated_text = translated_text
         
         progress_bar.progress(80)
