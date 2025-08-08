@@ -21,7 +21,8 @@ pypdf>=3.17.0
 python-docx>=0.8.11
 docx2txt>=0.8
 
-# Vector storage
+# Vector storage (with SQLite fix for Streamlit Cloud)
+pysqlite3-binary>=0.5.0
 chromadb>=0.4.0
 
 # Additional utilities

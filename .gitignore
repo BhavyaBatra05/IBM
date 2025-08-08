@@ -2,3 +2,5 @@
 /.env.example
 /chroma_db
 /myvenv
+/venv
+.early.coverage

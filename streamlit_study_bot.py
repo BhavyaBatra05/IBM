@@ -31,6 +31,14 @@ def load_env():
 
 load_env()
 
+# Fix SQLite3 issue for Streamlit Cloud
+try:
+    __import__('pysqlite3')
+    import sys
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    pass
+
 # Imports after env loading
 try:
     from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
@@ -135,10 +143,25 @@ def load_groq_llm():
 
 @st.cache_resource
 def setup_chromadb():
-    """Setup ChromaDB for vector storage"""
+    """Setup ChromaDB for vector storage with better error handling"""
     try:
-        # Initialize ChromaDB client
-        client = chromadb.PersistentClient(path="./chroma_db")
+        # Check for SQLite version issues common on Streamlit Cloud
+        try:
+            import sqlite3
+            sqlite_version = sqlite3.sqlite_version
+            if sqlite_version < "3.35.0":
+                st.warning(f"⚠️ SQLite version {sqlite_version} detected. ChromaDB may have issues.")
+        except Exception:
+            pass
+            
+        # Initialize ChromaDB client with error handling
+        try:
+            client = chromadb.PersistentClient(path="./chroma_db")
+        except Exception as client_error:
+            st.error(f"ChromaDB client creation failed: {client_error}")
+            # Try with in-memory client as fallback
+            st.info("🔄 Trying in-memory ChromaDB as fallback...")
+            client = chromadb.Client()
         
         # Create or get collection with explicit embedding function
         collection = client.get_or_create_collection(
@@ -146,9 +169,18 @@ def setup_chromadb():
             embedding_function=embedding_functions.DefaultEmbeddingFunction()
         )
         
+        st.success("✅ ChromaDB initialized successfully")
         return collection
+        
     except Exception as e:
-        st.error(f"Failed to setup ChromaDB: {e}")
+        st.error(f"❌ Failed to setup ChromaDB: {e}")
+        st.error("This is likely due to SQLite version compatibility issues on Streamlit Cloud")
+        st.info("""
+        **Troubleshooting ChromaDB on Streamlit Cloud:**
+        1. Make sure `pysqlite3-binary` is in your requirements.txt
+        2. Ensure the SQLite import fix is at the top of your script
+        3. Check that packages.txt includes `libsqlite3-dev`
+        """)
         return None
 
 def clear_chromadb():
