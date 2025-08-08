@@ -1,5 +1,5 @@
 # Regional Language Study Bot - Streamlit Cloud Compatible Requirements
-# Ultra-minimal dependencies for reliable deployment
+# Full functionality matching local development environment
 
 # Streamlit for web interface
 streamlit>=1.28.0
@@ -14,10 +14,15 @@ pypdf>=3.17.0
 python-docx>=0.8.11
 docx2txt>=0.8
 
+# Vector storage - ChromaDB with SQLite compatibility
+chromadb>=0.4.24
+pysqlite3-binary>=0.5.0
+
+# Translation services - Facebook NLLB-200
+torch>=2.0.0
+transformers>=4.30.0
+sentencepiece>=0.1.95
+
 # Basic utilities
 requests>=2.25.0
 pydantic>=2.0.0
-
-# Note: Translation temporarily disabled for deployment stability
-# Will use simple text display instead of actual translation
-# torch and transformers removed due to resource constraints on Streamlit Cloud

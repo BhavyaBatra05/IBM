@@ -4,6 +4,14 @@ Regional Language Study Bot - Streamlit App
 Complete workflow: PDF/DOC extraction -> Summary -> Quiz -> Translation to Indian Languages
 """
 
+# SQLite compatibility fix for ChromaDB on deployment platforms
+import sys
+try:
+    __import__('pysqlite3')
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    pass
+
 import streamlit as st
 import os
 import tempfile
@@ -41,29 +49,26 @@ try:
     from pydantic import SecretStr
     import requests
     
-    # Optional ChromaDB for vector storage
+    # ChromaDB for vector storage
     CHROMADB_AVAILABLE = False
     try:
         import chromadb
         from chromadb.utils import embedding_functions
         CHROMADB_AVAILABLE = True
         st.success("✅ ChromaDB vector storage available")
-    except Exception as e:  # Catch all exceptions including RuntimeError for SQLite issues
-        st.warning("⚠️ ChromaDB not available, using in-memory storage")
-        if "sqlite3" in str(e).lower():
-            st.info("💡 SQLite version incompatibility - using memory storage instead")
-        else:
-            st.info(f"ChromaDB Error: {e}")
+    except Exception as e:
+        st.error(f"ChromaDB import failed: {e}")
+        CHROMADB_AVAILABLE = False
     
-    # Translation models using Hugging Face Pipeline (deployment-friendly)
+    # Translation models using Hugging Face Pipeline
     NLLB_TRANSLATION_AVAILABLE = False
     try:
         from transformers import pipeline
         NLLB_TRANSLATION_AVAILABLE = True
         st.success("🚀 NLLB-200 translation pipeline available")
     except Exception as e:
-        st.warning("⚠️ Translation models not available, using display fallback")
-        st.info("💡 For deployment stability, showing content in English with regional language labels")
+        st.error(f"Translation pipeline import failed: {e}")
+        NLLB_TRANSLATION_AVAILABLE = False
         
 except ImportError as e:
     st.error(f"Required packages not installed: {e}")
