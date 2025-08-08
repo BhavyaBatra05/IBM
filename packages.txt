@@ -1,1 +1,5 @@
 libsqlite3-dev
+cmake
+pkg-config
+build-essential
+python3-dev

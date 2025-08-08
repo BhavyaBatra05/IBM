@@ -112,14 +112,29 @@ def init_session_state():
 # Load models (cached)
 @st.cache_resource
 def load_translation_model():
-    """Load Facebook NLLB-200 translation model"""
+    """Load Facebook NLLB-200 translation model with graceful fallback"""
     try:
+        # Check if required packages are available
+        try:
+            from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+            import torch
+        except ImportError as import_err:
+            st.warning(f"⚠️ Translation model dependencies not available: {import_err}")
+            st.info("🔧 App will work without translation feature. Install transformers and torch for full functionality.")
+            return None, None
+            
         model_name = "facebook/nllb-200-distilled-600M"
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+        
+        with st.spinner("Loading translation model... This may take a few minutes on first run."):
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+            
+        st.success("✅ Translation model loaded successfully!")
         return tokenizer, model
+        
     except Exception as e:
-        st.error(f"Failed to load translation model: {e}")
+        st.warning(f"⚠️ Failed to load translation model: {e}")
+        st.info("🔧 App will work in English-only mode. Translation features will be disabled.")
         return None, None
 
 @st.cache_resource
