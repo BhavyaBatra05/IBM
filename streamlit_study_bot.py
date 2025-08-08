@@ -38,10 +38,19 @@ try:
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
     from langchain.text_splitter import RecursiveCharacterTextSplitter
-    import chromadb
-    from chromadb.utils import embedding_functions
     from pydantic import SecretStr
     import requests
+    
+    # Optional ChromaDB for vector storage
+    CHROMADB_AVAILABLE = False
+    try:
+        import chromadb
+        from chromadb.utils import embedding_functions
+        CHROMADB_AVAILABLE = True
+        st.success("✅ ChromaDB vector storage available")
+    except ImportError as e:
+        st.warning("⚠️ ChromaDB not available, using in-memory storage")
+        st.info(f"ChromaDB Error: {e}")
     
     # Translation models using Hugging Face Pipeline (deployment-friendly)
     NLLB_TRANSLATION_AVAILABLE = False
@@ -154,7 +163,11 @@ def load_groq_llm():
 
 @st.cache_resource
 def setup_chromadb():
-    """Setup ChromaDB for vector storage"""
+    """Setup ChromaDB for vector storage (if available)"""
+    if not CHROMADB_AVAILABLE:
+        st.info("📁 Using in-memory document storage (ChromaDB not available)")
+        return None
+        
     try:
         # Initialize ChromaDB client
         client = chromadb.PersistentClient(path="./chroma_db")
@@ -165,9 +178,10 @@ def setup_chromadb():
             embedding_function=embedding_functions.DefaultEmbeddingFunction()
         )
         
+        st.success("✅ ChromaDB vector storage initialized")
         return collection
     except Exception as e:
-        st.error(f"Failed to setup ChromaDB: {e}")
+        st.warning(f"ChromaDB setup failed, using in-memory storage: {e}")
         return None
 
 def clear_chromadb():
@@ -584,11 +598,25 @@ def translate_text_nllb(text: str, target_language_code: str) -> str:
     return translate_text_simple_fallback(text, target_language or "Unknown")
 
 def store_chunks_in_chromadb(chunks: List[str], document_name: str):
-    """Store document chunks in ChromaDB for retrieval"""
+    """Store document chunks in ChromaDB or in-memory storage"""
+    if not CHROMADB_AVAILABLE:
+        # Use in-memory storage as fallback
+        if 'document_chunks' not in st.session_state:
+            st.session_state.document_chunks = {}
+        
+        st.session_state.document_chunks[document_name] = chunks
+        st.success(f"Stored {len(chunks)} chunks in memory")
+        return
+        
     try:
         collection = setup_chromadb()
         if collection is None:
-            st.error("Failed to setup ChromaDB collection")
+            # Fallback to in-memory storage
+            if 'document_chunks' not in st.session_state:
+                st.session_state.document_chunks = {}
+            
+            st.session_state.document_chunks[document_name] = chunks
+            st.info(f"Stored {len(chunks)} chunks in memory (ChromaDB fallback)")
             return
             
         # Create metadata for each chunk with proper string types
@@ -615,8 +643,13 @@ def store_chunks_in_chromadb(chunks: List[str], document_name: str):
         st.success(f"Stored {len(chunks)} chunks in vector database")
         
     except Exception as e:
-        st.error(f"Error storing chunks: {e}")
-        st.error(f"Debug info - Document: {document_name}, Chunks: {len(chunks) if chunks else 0}")
+        # Fallback to in-memory storage on error
+        if 'document_chunks' not in st.session_state:
+            st.session_state.document_chunks = {}
+        
+        st.session_state.document_chunks[document_name] = chunks
+        st.warning(f"ChromaDB error, using memory storage: {e}")
+        st.info(f"Stored {len(chunks)} chunks in memory")
 
 def debug_quiz_format(quiz_data, title="Quiz Debug"):
     """Debug function to show quiz data format"""
@@ -879,13 +912,16 @@ def main():
             st.error("❌ No Translation Service Available")
             st.info("💡 App will work with limited functionality")
         
-        # ChromaDB status
-        collection = setup_chromadb()
-        if collection:
-            st.success("✅ ChromaDB Ready")
+        # Storage status
+        if CHROMADB_AVAILABLE:
+            collection = setup_chromadb()
+            if collection:
+                st.success("✅ ChromaDB Vector Storage Ready")
+            else:
+                st.warning("⚠️ ChromaDB failed, using memory storage")
         else:
-            st.warning("⚠️ ChromaDB Optional")
-            st.info("💡 If you see ChromaDB errors, try the options below:")
+            st.info("� Using in-memory storage")
+            st.info("💡 ChromaDB not available (SQLite compatibility issue)")
             
             col_a, col_b = st.columns(2)
             with col_a:

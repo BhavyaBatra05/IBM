@@ -1,2 +1,6 @@
 python3-dev
 build-essential
+sqlite3
+libsqlite3-dev
+libssl-dev
+libffi-dev
