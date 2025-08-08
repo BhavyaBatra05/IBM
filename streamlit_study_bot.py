@@ -48,9 +48,12 @@ try:
         from chromadb.utils import embedding_functions
         CHROMADB_AVAILABLE = True
         st.success("✅ ChromaDB vector storage available")
-    except ImportError as e:
+    except Exception as e:  # Catch all exceptions including RuntimeError for SQLite issues
         st.warning("⚠️ ChromaDB not available, using in-memory storage")
-        st.info(f"ChromaDB Error: {e}")
+        if "sqlite3" in str(e).lower():
+            st.info("💡 SQLite version incompatibility - using memory storage instead")
+        else:
+            st.info(f"ChromaDB Error: {e}")
     
     # Translation models using Hugging Face Pipeline (deployment-friendly)
     NLLB_TRANSLATION_AVAILABLE = False
