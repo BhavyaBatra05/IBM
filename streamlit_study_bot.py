@@ -669,7 +669,7 @@ For now, you can use the English content above for study purposes.
 """
 
 def translate_text_nllb(text: str, target_language_code: str) -> str:
-    """Main translation function with deployment-friendly fallback"""
+    """Main translation function - tries Google Translate first, then fallback"""
     # Get target language name
     target_language = None
     for lang, code in INDIAN_LANGUAGES.items():
@@ -677,7 +677,16 @@ def translate_text_nllb(text: str, target_language_code: str) -> str:
             target_language = lang
             break
     
-    # For deployment simplicity, use basic fallback
+    # Try Google Translate first if available
+    if GOOGLE_TRANSLATE_AVAILABLE:
+        try:
+            st.info("🌐 Using Google Translate service")
+            return translate_text_google(text, target_language_code)
+        except Exception as e:
+            st.warning(f"Google Translate failed: {e}")
+    
+    # Fallback to simple placeholder
+    return translate_text_simple_fallback(text, target_language or "Unknown")
     return translate_text_simple_fallback(text, target_language or "Unknown")
 
 def store_chunks_in_chromadb(chunks: List[str], document_name: str):
