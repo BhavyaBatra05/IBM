@@ -139,7 +139,15 @@ try:
     from langchain_groq import ChatGroq
     from langchain_core.prompts import ChatPromptTemplate
     from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
+    # langchain reorganized text splitter modules across versions -- try both locations
+    RecursiveCharacterTextSplitter = None
+    try:
+        from langchain.text_splitter import RecursiveCharacterTextSplitter
+    except Exception:
+        try:
+            from langchain.text_splitter import RecursiveCharacterTextSplitter
+        except Exception:
+            RecursiveCharacterTextSplitter = None
     from pydantic import SecretStr
     import requests
     
@@ -228,43 +236,21 @@ def init_session_state():
 
 # Load models (cached)
 @st.cache_resource
-<<<<<<< HEAD
-def load_translation_model():
-    """Load Facebook NLLB-200 translation model with graceful fallback"""
-    try:
-        # Check if required packages are available
-        try:
-            from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-            import torch
-        except ImportError as import_err:
-            st.warning(f"⚠️ Translation model dependencies not available: {import_err}")
-            st.info("🔧 App will work without translation feature. Install transformers and torch for full functionality.")
-            return None, None
-            
-        model_name = "facebook/nllb-200-distilled-600M"
-        
-        with st.spinner("Loading translation model... This may take a few minutes on first run."):
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
-            model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-            
-        st.success("✅ Translation model loaded successfully!")
-        return tokenizer, model
-        
-    except Exception as e:
-        st.warning(f"⚠️ Failed to load translation model: {e}")
-        st.info("🔧 App will work in English-only mode. Translation features will be disabled.")
-        return None, None
-=======
 def load_translation_pipeline():
-    """Load Facebook NLLB-200 translation pipeline (deployment-friendly)"""
+    """Load Facebook NLLB-200 translation pipeline (deployment-friendly).
+
+    This version is deployment-friendly (uses the transformers pipeline API).
+    If the NLLB translation support isn't available we return None and the
+    app falls back to non-translated behavior.
+    """
     if not NLLB_TRANSLATION_AVAILABLE:
         st.info("ℹ️ Translation pipeline not available, using fallback")
         return None
-        
+
     try:
         # Use pipeline API which handles tokenizer and model automatically
         translator = pipeline(
-            "translation", 
+            "translation",
             model="facebook/nllb-200-distilled-600M",
             device=-1,  # Use CPU for compatibility
             torch_dtype="auto"
@@ -274,7 +260,6 @@ def load_translation_pipeline():
     except Exception as e:
         st.warning(f"Failed to load translation pipeline: {e}")
         return None
->>>>>>> 7a6703ecd75303c696db88931f286d0097da6b82
 
 @st.cache_resource
 def load_groq_llm():
@@ -297,8 +282,16 @@ def load_groq_llm():
 
 @st.cache_resource
 def setup_chromadb():
-<<<<<<< HEAD
-    """Setup ChromaDB for vector storage with better error handling"""
+    """Setup ChromaDB for vector storage with robust fallbacks.
+
+    If ChromaDB is not available we return None. If ChromaDB is available but
+    client creation fails due to platform issues (SQLite), we fall back to an
+    in-memory client and return a collection-like interface where possible.
+    """
+    if not CHROMADB_AVAILABLE:
+        st.info("📁 Using in-memory document storage (ChromaDB not available)")
+        return None
+
     try:
         # Check for SQLite version issues common on Streamlit Cloud
         try:
@@ -308,57 +301,28 @@ def setup_chromadb():
                 st.warning(f"⚠️ SQLite version {sqlite_version} detected. ChromaDB may have issues.")
         except Exception:
             pass
-            
+
         # Initialize ChromaDB client with error handling
         try:
             client = chromadb.PersistentClient(path="./chroma_db")
         except Exception as client_error:
-            st.error(f"ChromaDB client creation failed: {client_error}")
-            # Try with in-memory client as fallback
-            st.info("🔄 Trying in-memory ChromaDB as fallback...")
-            client = chromadb.Client()
-=======
-    """Setup ChromaDB for vector storage (if available)"""
-    if not CHROMADB_AVAILABLE:
-        st.info("📁 Using in-memory document storage (ChromaDB not available)")
-        return None
-        
-    try:
-        # Check if chromadb was imported successfully
-        if not CHROMADB_AVAILABLE:
-            st.warning("ChromaDB not imported, using in-memory storage")
-            return None
-            
-        # Initialize ChromaDB client
-        client = chromadb.PersistentClient(path="./chroma_db")
->>>>>>> 7a6703ecd75303c696db88931f286d0097da6b82
-        
+            st.warning(f"ChromaDB client creation failed, falling back to in-memory client: {client_error}")
+            try:
+                client = chromadb.Client()
+            except Exception as client_err2:
+                st.error(f"Unable to create any ChromaDB client: {client_err2}")
+                return None
+
         # Create or get collection with default settings (avoids type issues)
-        collection = client.get_or_create_collection(
-            name="document_chunks"
-        )
-        
-<<<<<<< HEAD
-        st.success("✅ ChromaDB initialized successfully")
-=======
+        collection = client.get_or_create_collection(name="document_chunks")
         st.success("✅ ChromaDB vector storage initialized")
->>>>>>> 7a6703ecd75303c696db88931f286d0097da6b82
         return collection
-        
+
     except Exception as e:
-<<<<<<< HEAD
-        st.error(f"❌ Failed to setup ChromaDB: {e}")
-        st.error("This is likely due to SQLite version compatibility issues on Streamlit Cloud")
-        st.info("""
-        **Troubleshooting ChromaDB on Streamlit Cloud:**
-        1. Make sure `pysqlite3-binary` is in your requirements.txt
-        2. Ensure the SQLite import fix is at the top of your script
-        3. Check that packages.txt includes `libsqlite3-dev`
-        """)
-=======
         st.warning(f"ChromaDB setup failed, using in-memory storage: {e}")
->>>>>>> 7a6703ecd75303c696db88931f286d0097da6b82
         return None
+        
+    # (cleaned up previous merge conflict remnants)
 
 def clear_chromadb():
     """Clear ChromaDB data in case of issues"""
@@ -450,16 +414,30 @@ def extract_text_from_document(uploaded_file) -> str:
 
 def split_text_into_chunks(text: str, chunk_size: int = 2000) -> List[str]:
     """Split text into manageable chunks"""
+    # If LangChain's RecursiveCharacterTextSplitter is available, use it.
+    if RecursiveCharacterTextSplitter is not None:
+        try:
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=chunk_size,
+                chunk_overlap=200,
+                length_function=len
+            )
+            chunks = text_splitter.split_text(text)
+            return chunks
+        except Exception as e:
+            # Fall through to simple fallback
+            st.warning(f"LangChain splitter failed, using fallback splitter: {e}")
+
+    # Fallback splitter: simple sliding window with overlap (robust, no external deps)
     try:
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=200,
-            length_function=len
-        )
-        chunks = text_splitter.split_text(text)
+        overlap = min(200, max(0, int(chunk_size * 0.1)))
+        step = max(1, chunk_size - overlap)
+        chunks = [text[i:i + chunk_size] for i in range(0, max(0, len(text)), step)]
+        if not chunks:
+            return [text]
         return chunks
     except Exception as e:
-        st.error(f"Error splitting text: {e}")
+        st.error(f"Error splitting text with fallback splitter: {e}")
         return [text]
 
 def generate_summary_with_groq(text: str) -> str:
