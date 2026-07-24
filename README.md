@@ -1,513 +1,1180 @@
-# 📚 Regional Language Study Bot - AI-Powered Document Processing Platform
+# 📚 Regional Language Study Bot
 
-> **Transform any document into personalized study materials in 17+ Indian regional languages using advanced AI**
+> **An AI-powered multilingual document study assistant that transforms academic documents into personalized learning material with summaries, quizzes, document Q&A, and translations into 16+ Indian languages.**
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-red.svg)](https://streamlit.io)
-[![Groq](https://img.shields.io/badge/Groq-LLM-green.svg)](https://groq.com)
-[![NLLB](https://img.shields.io/badge/Meta-NLLB--200-orange.svg)](https://huggingface.co/facebook/nllb-200-distilled-600M)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-## 🎯 **Executive Summary**
-
-The Regional Language Study Bot is an innovative AI-powered platform that democratizes education by breaking language barriers. It automatically processes academic documents and generates comprehensive study materials in Indian regional languages, making quality education accessible to millions of students in their native languages.
-
-### **Key Value Propositions**
-- 🌐 **Multilingual Education**: Support for 17+ Indian regional languages
-- 🤖 **AI-Powered Processing**: Advanced LLM for content generation
-- ⚡ **Parallel Processing**: High-speed translation with multi-threading
-- 📚 **Complete Study Suite**: Summaries, quizzes, and translations
-- 💻 **User-Friendly Interface**: Intuitive Streamlit web application
+![Python](https://img.shields.io/badge/Python-3.11-blue?style=for-the-badge&logo=python)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.46-red?style=for-the-badge&logo=streamlit)
+![Groq](https://img.shields.io/badge/Groq-LLM-black?style=for-the-badge)
+![Azure AI Translator](https://img.shields.io/badge/Azure-AI%20Translator-0078D4?style=for-the-badge&logo=microsoftazure)
+![LangChain](https://img.shields.io/badge/LangChain-Framework-green?style=for-the-badge)
+![ChromaDB](https://img.shields.io/badge/ChromaDB-VectorDB-orange?style=for-the-badge)
+![Docker](https://img.shields.io/badge/Docker-Container-blue?style=for-the-badge&logo=docker)
+![AWS](https://img.shields.io/badge/AWS-EC2-orange?style=for-the-badge&logo=amazonaws)
 
 ---
 
-## 🚀 **Product Overview**
+# 🌟 Overview
 
-### **What It Does**
-Transform any PDF, DOC, or text document into a complete study package:
-1. **Extract** text from documents using advanced OCR
-2. **Summarize** content using Groq's powerful LLM
-3. **Generate** interactive quizzes with explanations
-4. **Translate** everything into user's preferred regional language
-5. **Store** content in vector database for future queries
+Regional Language Study Bot is an AI-powered educational platform that converts study material into easy-to-understand learning resources.
 
-### **Target Audience**
-- **Students** studying in regional languages
-- **Educators** creating multilingual content
-- **Researchers** analyzing documents in multiple languages
-- **Government institutions** promoting regional language education
-- **EdTech companies** expanding to regional markets
+The application allows users to upload documents, automatically extracts the content, generates AI-powered summaries, creates multiple-choice quizzes, answers document-specific questions using Retrieval-Augmented Generation (RAG), and translates all generated content into multiple Indian regional languages.
+
+The project combines modern Large Language Models with cloud-based translation services to provide an efficient and scalable multilingual learning experience.
 
 ---
 
-## 🏗️ **Technical Architecture**
+# ✨ Features
 
-### **Core Components**
+## 📄 Intelligent Document Processing
 
-```mermaid
-graph TB
-    A[Document Upload] --> B[Text Extraction]
-    B --> C[Content Processing]
-    C --> D[LLM Analysis]
-    D --> E[Parallel Translation]
-    E --> F[Vector Storage]
-    F --> G[User Interface]
-    
-    C --> C1[Groq LLM]
-    C1 --> C2[Summary Generation]
-    C1 --> C3[Quiz Creation]
-    
-    E --> E1[NLLB-200 Model]
-    E1 --> E2[Chunk Processing]
-    E2 --> E3[Parallel Threads]
+Supports:
+
+- PDF
+- DOCX
+- TXT
+
+Automatically extracts and processes text for AI analysis.
+
+---
+
+## 📝 AI Summary Generation
+
+Generate concise and structured summaries using:
+
+- Groq Llama-3.3-70B
+
+The summaries preserve important concepts while reducing reading time.
+
+---
+
+## ❓ Automatic Quiz Generation
+
+Generate AI-powered multiple-choice questions including:
+
+- Question
+- Four Options
+- Correct Answer
+- Explanation
+
+Useful for revision and self-assessment.
+
+---
+
+## 💬 Document Question Answering (RAG)
+
+Ask questions directly about the uploaded document.
+
+Powered by:
+
+- LangChain
+- ChromaDB
+- Groq LLM
+
+The system retrieves relevant chunks before generating responses.
+
+---
+
+## 🌐 Multilingual Translation
+
+Translate:
+
+- Original Document
+- Summary
+- Quiz
+- AI Responses
+
+using **Microsoft Azure AI Translator**.
+
+Supports **16 Indian regional languages**.
+
+---
+
+## 🐳 Docker Support
+
+The project is fully containerized using Docker for consistent deployment across environments.
+
+---
+
+## ☁️ Cloud Deployment Ready
+
+Designed to run on:
+
+- AWS EC2 Free Tier
+- Azure Virtual Machines
+- Railway
+- Any Docker-compatible server
+
+---
+
+# 🏗 System Architecture
+
+```text
+                    +----------------------+
+                    |  Upload Document     |
+                    +----------+-----------+
+                               |
+                               v
+                     Text Extraction Layer
+                               |
+                               v
+                  Recursive Text Chunking
+                               |
+               +---------------+---------------+
+               |                               |
+               |                               |
+               v                               v
+        Groq LLM                     Azure AI Translator
+               |                               |
+     +---------+---------+                     |
+     |         |         |                     |
+     |         |         |                     |
+ Summary     Quiz      Q&A                 Translation
+     |         |         |                     |
+     +---------+---------+---------------------+
+                       |
+                       v
+                 Streamlit Interface
+                       |
+                       v
+                   ChromaDB
 ```
 
-### **Technology Stack**
+---
 
-| **Category** | **Technology** | **Purpose** |
-|--------------|----------------|-------------|
-| **Frontend** | Streamlit | Interactive web interface |
-| **LLM Engine** | Groq (Llama-3.3-70B) | Content analysis & generation |
-| **Translation** | Meta NLLB-200 | Regional language translation |
-| **Document Processing** | LangChain | Text extraction & chunking |
-| **Vector Storage** | ChromaDB | Semantic search & retrieval |
-| **Parallel Processing** | ThreadPoolExecutor | High-speed translation |
-| **Models** | HuggingFace Transformers | Local model deployment |
+# ⚙ Tech Stack
+
+| Category | Technology |
+|-----------|------------|
+| Frontend | Streamlit |
+| Backend | Python |
+| LLM | Groq (Llama-3.3-70B) |
+| Translation | Azure AI Translator |
+| RAG Framework | LangChain |
+| Vector Database | ChromaDB |
+| Document Parsing | PyPDF, python-docx |
+| Deployment | Docker |
+| Cloud | AWS EC2 |
 
 ---
 
-## 🌍 **Language Support**
+# 🌍 Supported Languages
 
-### **Supported Indian Regional Languages**
+The application currently supports translation into:
 
-| **Script** | **Languages** | **Speakers** |
-|------------|---------------|--------------|
-| **Devanagari** | Hindi, Marathi, Nepali, Sanskrit | 600M+ |
-| **Bengali** | Bengali, Assamese | 300M+ |
-| **Dravidian** | Tamil, Telugu, Kannada, Malayalam | 250M+ |
-| **Arabic** | Urdu, Kashmiri, Sindhi | 100M+ |
-| **Gurmukhi** | Punjabi | 100M+ |
-| **Others** | Gujarati, Odia, Konkani | 150M+ |
+- Hindi
+- Bengali
+- Tamil
+- Telugu
+- Marathi
+- Gujarati
+- Kannada
+- Malayalam
+- Punjabi
+- Odia
+- Assamese
+- Urdu
+- Nepali
+- Kashmiri
+- Sindhi
+- Konkani
 
-**Total Reach**: 1.5+ Billion speakers across India
-
----
-
-## 📊 **Business Model & Market Analysis**
-
-### **Market Opportunity**
-
-| **Segment** | **Market Size** | **Growth Rate** |
-|-------------|-----------------|-----------------|
-| **Indian EdTech Market** | $3.4B (2023) | 20% CAGR |
-| **Regional Language Users** | 800M+ users | 15% YoY |
-| **Government Education Budget** | $50B annually | 12% increase |
-| **Corporate Training** | $366M market | 18% CAGR |
-
-### **Revenue Streams**
-
-1. **SaaS Subscriptions**
-   - Individual: $10/month
-   - Educational Institutions: $500/month
-   - Enterprise: $2000/month
-
-2. **API Services**
-   - Translation API: $0.01/page
-   - Document Processing: $0.05/document
-   - Custom Model Training: $5000/project
-
-3. **Government Partnerships**
-   - State education departments
-   - Digital India initiatives
-   - Rural education programs
-
-### **Competitive Advantages**
-
-| **Factor** | **Our Solution** | **Competitors** |
-|------------|------------------|-----------------|
-| **Language Coverage** | 17+ Indian languages | 2-5 languages |
-| **Processing Speed** | Parallel translation | Sequential processing |
-| **Accuracy** | 95%+ with context | 80-85% generic |
-| **Deployment** | Local + Cloud | Cloud-only |
-| **Cost** | 70% lower | High API costs |
+Azure AI Translator performs automatic language translation with high accuracy while preserving the original meaning.
 
 ---
 
-## 🛠️ **Implementation & Setup**
+# 🚀 Key Highlights
 
-### **System Requirements**
+✅ AI-powered educational assistant
 
-| **Component** | **Minimum** | **Recommended** |
-|---------------|-------------|-----------------|
-| **RAM** | 8GB | 16GB+ |
-| **Storage** | 10GB | 50GB+ |
-| **GPU** | Optional | NVIDIA GTX 1060+ |
-| **Python** | 3.8+ | 3.10+ |
-| **Internet** | 50 Mbps | 100 Mbps+ |
+✅ Retrieval-Augmented Generation (RAG)
 
-### **Quick Start Guide**
+✅ Multilingual learning support
+
+✅ Interactive quiz generation
+
+✅ Azure AI Translator integration
+
+✅ Groq LLM integration
+
+✅ ChromaDB vector search
+
+✅ Dockerized deployment
+
+✅ AWS EC2 compatible
+
+✅ Modern cloud-native architecture
+
+---
+
+# 📷 Application Preview
+
+> Add screenshots here.
+
+Example:
+
+```
+images/home.png
+
+images/summary.png
+
+images/quiz.png
+
+images/translation.png
+```
+
+These screenshots help visitors quickly understand the application.
+
+# 📁 Project Structure
+
+```
+Regional-Language-Study-Bot/
+│
+├── streamlit_study_bot.py          # Main Streamlit application
+├── run_streamlit_bot.py            # Startup script
+├── requirements.txt                # Project dependencies
+├── Dockerfile                      # Docker configuration
+├── .env                            # Environment variables (Not committed)
+├── .gitignore
+│
+├── chroma_db/                      # ChromaDB vector database
+│
+├── assets/                         # Images & screenshots
+│
+├── README.md
+│
+└── requirements_streamlit.txt      # (Optional legacy file)
+```
+
+---
+
+# ⚡ Installation
+
+## 1. Clone Repository
 
 ```bash
-# 1. Clone Repository
-git clone https://github.com/your-org/regional-language-study-bot
+git clone https://github.com/<your-username>/regional-language-study-bot.git
+
 cd regional-language-study-bot
+```
 
-# 2. Setup Environment
+---
+
+## 2. Create Virtual Environment
+
+### Windows
+
+```bash
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
 
-# 3. Install Dependencies
-pip install -r requirements_streamlit.txt
+venv\Scripts\activate
+```
 
-# 4. Configure Environment
-echo "GROQ_API_KEY=your-groq-api-key" > .env
+### Linux / macOS
 
-# 5. Launch Application
+```bash
+python3 -m venv venv
+
+source venv/bin/activate
+```
+
+---
+
+## 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+# 🔑 Environment Variables
+
+Create a file named
+
+```
+.env
+```
+
+and add:
+
+```env
+GROQ_API_KEY=your_groq_api_key
+
+AZURE_TRANSLATOR_KEY=your_azure_key
+
+AZURE_TRANSLATOR_REGION=centralindia
+
+AZURE_TRANSLATOR_ENDPOINT=https://api.cognitive.microsofttranslator.com/
+```
+
+---
+
+## Getting API Keys
+
+### Groq API
+
+1. Create an account on Groq Cloud
+
+2. Generate an API Key
+
+3. Copy the key into
+
+```
+GROQ_API_KEY
+```
+
+---
+
+### Azure AI Translator
+
+1. Create a Translator resource in Azure Portal
+
+2. Choose
+
+```
+Pricing Tier: F0 (Free)
+```
+
+3. Copy
+
+- Key
+- Region
+- Endpoint
+
+into the `.env` file.
+
+The free tier provides:
+
+- 2 Million translated characters per month.
+
+---
+
+# ▶ Running the Application
+
+Run:
+
+```bash
+streamlit run streamlit_study_bot.py
+```
+
+or
+
+```bash
 python run_streamlit_bot.py
 ```
 
-### **Docker Deployment**
+The application will open at
 
-```dockerfile
-FROM python:3.10-slim
-
-WORKDIR /app
-COPY requirements_streamlit.txt .
-RUN pip install -r requirements_streamlit.txt
-
-COPY . .
-EXPOSE 8501
-
-CMD ["streamlit", "run", "streamlit_study_bot.py", "--server.port=8501"]
+```
+http://localhost:8501
 ```
 
 ---
 
-## 📈 **Performance Metrics**
+# 🐳 Docker Deployment
 
-### **Processing Performance**
+## Build Docker Image
 
-| **Document Size** | **Processing Time** | **Translation Speed** |
-|-------------------|--------------------|--------------------|
-| **1-5 pages** | 30-60 seconds | 2 pages/minute |
-| **5-20 pages** | 2-5 minutes | 5 pages/minute |
-| **20-50 pages** | 5-15 minutes | 8 pages/minute |
-| **50+ pages** | 15-30 minutes | 10 pages/minute |
-
-### **Quality Metrics**
-
-| **Metric** | **Score** | **Benchmark** |
-|------------|-----------|---------------|
-| **Translation Accuracy** | 95.2% | Google Translate: 92% |
-| **Summary Relevance** | 94.7% | Human baseline: 96% |
-| **Quiz Quality** | 93.8% | Educational standard: 90% |
-| **User Satisfaction** | 4.8/5 | Industry average: 4.2/5 |
-
----
-
-## 🔬 **Technical Innovation**
-
-### **Novel Features**
-
-1. **Parallel Chunk Translation**
-   - Multi-threaded processing
-   - 4x faster than sequential translation
-   - Maintains context across chunks
-
-2. **Adaptive Chunk Sizing**
-   - Dynamic chunk size based on content type
-   - Optimized for translation accuracy
-   - Configurable through UI
-
-3. **Context-Aware Summarization**
-   - Uses advanced prompt engineering
-   - Preserves domain-specific terminology
-   - Maintains educational structure
-
-4. **Interactive Quiz Generation**
-   - Multiple-choice questions with explanations
-   - Difficulty-based question selection
-   - JSON-structured output for integration
-
-### **AI Model Integration**
-
-```python
-# Groq LLM Integration
-llm = ChatGroq(
-    model="llama-3.3-70b-versatile",
-    temperature=0.1,
-    streaming=True
-)
-
-# NLLB Translation Model
-model = AutoModelForSeq2SeqLM.from_pretrained(
-    "facebook/nllb-200-distilled-600M"
-)
-
-# Parallel Processing
-with ThreadPoolExecutor(max_workers=4) as executor:
-    futures = [executor.submit(translate_chunk, chunk) 
-              for chunk in text_chunks]
+```bash
+docker build -t ibm-study-bot .
 ```
 
 ---
 
-## 📋 **Use Cases & Applications**
+## Run Docker Container
 
-### **Educational Sector**
+```bash
+docker run --env-file .env -p 8501:8501 ibm-study-bot
+```
 
-1. **Rural Education**
-   - Convert English textbooks to regional languages
-   - Create study materials for government schools
-   - Support teachers with limited English proficiency
+Then open
 
-2. **Higher Education**
-   - Translate research papers for regional universities
-   - Create multilingual course materials
-   - Support non-English speaking graduate students
-
-3. **Professional Training**
-   - Corporate training in regional languages
-   - Government employee training programs
-   - Skill development initiatives
-
-### **Government Applications**
-
-1. **Digital India Initiative**
-   - Digitize government documents
-   - Create multilingual citizen services
-   - Support rural digital literacy
-
-2. **Policy Implementation**
-   - Translate policy documents
-   - Create awareness materials
-   - Support local government communication
-
-### **Commercial Applications**
-
-1. **Content Creation**
-   - Educational publishers
-   - E-learning platforms
-   - Corporate training companies
-
-2. **Localization Services**
-   - Software localization
-   - Website translation
-   - Marketing content adaptation
+```
+http://localhost:8501
+```
 
 ---
 
-## 🎯 **Product Roadmap**
+# ☁ Deploying on AWS EC2
 
-### **Phase 1: Core Platform (Completed)**
-- ✅ Basic document processing
-- ✅ 17 Indian language support
-- ✅ Streamlit interface
-- ✅ Parallel translation
-
-### **Phase 2: Enhanced Features (Q1 2025)**
-- 🔄 Audio output (Text-to-Speech)
-- 🔄 Mobile application
-- 🔄 Advanced quiz types
-- 🔄 Collaborative features
-
-### **Phase 3: Enterprise Features (Q2 2025)**
-- ⏳ API marketplace
-- ⏳ Custom model training
-- ⏳ Enterprise dashboard
-- ⏳ Analytics & reporting
-
-### **Phase 4: AI Enhancement (Q3 2025)**
-- ⏳ GPT-4 integration
-- ⏳ Computer vision for images
-- ⏳ Multilingual conversation AI
-- ⏳ Adaptive learning algorithms
+The application has been designed for deployment on AWS EC2 Free Tier.
 
 ---
 
-## 💰 **Financial Projections**
+## Step 1
 
-### **5-Year Revenue Forecast**
+Launch an Ubuntu EC2 instance.
 
-| **Year** | **Users** | **Revenue** | **Growth** |
-|----------|-----------|-------------|------------|
-| **2024** | 1,000 | $50K | - |
-| **2025** | 10,000 | $500K | 900% |
-| **2026** | 50,000 | $2.5M | 400% |
-| **2027** | 200,000 | $8M | 220% |
-| **2028** | 500,000 | $20M | 150% |
+Recommended:
 
-### **Cost Structure**
-
-| **Category** | **Year 1** | **Year 5** |
-|--------------|------------|------------|
-| **Infrastructure** | $20K | $500K |
-| **AI Model Costs** | $15K | $200K |
-| **Development** | $100K | $2M |
-| **Marketing** | $30K | $1M |
-| **Operations** | $50K | $800K |
+- Ubuntu 24.04 LTS
+- t2.micro (Free Tier)
 
 ---
 
-## 🤝 **Partnership Opportunities**
+## Step 2
 
-### **Strategic Partners**
+Install Docker
 
-1. **Educational Institutions**
-   - IITs, IIMs, Central Universities
-   - State education boards
-   - Private educational chains
+```bash
+sudo apt update
 
-2. **Technology Partners**
-   - Microsoft (Azure AI)
-   - Google (Cloud Translation)
-   - AWS (Infrastructure)
-
-3. **Government Bodies**
-   - Ministry of Education
-   - Digital India Corporation
-   - State IT departments
-
-4. **NGOs & Foundations**
-   - Akshaya Patra Foundation
-   - Teach for India
-   - Pratham Education Foundation
+sudo apt install docker.io -y
+```
 
 ---
 
-## 🔒 **Security & Compliance**
+## Step 3
 
-### **Data Protection**
+Enable Docker
 
-| **Aspect** | **Implementation** |
-|------------|-------------------|
-| **Data Encryption** | AES-256 encryption at rest |
-| **Transmission** | TLS 1.3 for data in transit |
-| **Access Control** | Role-based permissions |
-| **Audit Logs** | Comprehensive activity tracking |
-| **Backup** | Automated daily backups |
+```bash
+sudo systemctl enable docker
 
-### **Compliance Standards**
-
-- ✅ **GDPR** - European data protection
-- ✅ **SOC 2** - Security controls
-- ✅ **ISO 27001** - Information security
-- ✅ **India Data Protection** - Local compliance
+sudo systemctl start docker
+```
 
 ---
 
-## 📞 **Contact & Support**
+## Step 4
 
-### **Team**
+Transfer the project
 
-| **Role** | **Name** | **Contact** |
-|----------|----------|-------------|
-| **CEO & Founder** | [Your Name] | founder@studybot.ai |
-| **CTO** | [Tech Lead] | cto@studybot.ai |
-| **Head of AI** | [AI Expert] | ai@studybot.ai |
-| **Business Development** | [BD Lead] | business@studybot.ai |
+Clone your GitHub repository
 
-### **Support Channels**
+or
 
-- 📧 **Email**: support@studybot.ai
-- 💬 **Slack**: [Community Slack]
-- 📱 **WhatsApp**: +91-XXXX-XXXXXX
-- 🌐 **Website**: www.regionalstudybot.com
-- 🐦 **Twitter**: @RegionalStudyBot
+Copy the Docker image.
 
 ---
 
-## 📄 **Documentation & Resources**
+## Step 5
 
-### **Technical Documentation**
-- [API Documentation](docs/api.md)
-- [Integration Guide](docs/integration.md)
-- [Developer SDK](docs/sdk.md)
-- [Model Training Guide](docs/training.md)
+Run
 
-### **Business Resources**
-- [Business Plan](business/plan.pdf)
-- [Market Research](business/market-analysis.pdf)
-- [Financial Model](business/financial-model.xlsx)
-- [Pitch Deck](business/pitch-deck.pptx)
-
-### **Academic Papers**
-- [Multilingual NLP Research](papers/multilingual-nlp.pdf)
-- [Educational AI Impact Study](papers/education-ai-impact.pdf)
-- [Regional Language Processing](papers/regional-processing.pdf)
+```bash
+docker run \
+--env-file .env \
+-p 8501:8501 \
+ibm-study-bot
+```
 
 ---
 
-## 🏆 **Awards & Recognition**
+## Step 6
 
-- 🥇 **Best EdTech Innovation** - India Education Summit 2024
-- 🏅 **AI Excellence Award** - TechCrunch Disrupt 2024
-- 🎖️ **Social Impact Recognition** - UNESCO AI for Education
-- 🌟 **Startup of the Year** - Indian AI Conference 2024
+Open
 
----
+```
+http://<EC2-PUBLIC-IP>:8501
+```
 
-## 📊 **Success Metrics & KPIs**
-
-### **Product Metrics**
-- **Daily Active Users**: 10,000+
-- **Document Processing**: 50,000+ docs/month
-- **Translation Accuracy**: 95.2%
-- **User Retention**: 85% (30-day)
-
-### **Business Metrics**
-- **Monthly Recurring Revenue**: $100K+
-- **Customer Acquisition Cost**: $25
-- **Lifetime Value**: $500
-- **Churn Rate**: 5% monthly
-
-### **Impact Metrics**
-- **Students Reached**: 100,000+
-- **Languages Supported**: 17
-- **Rural Area Penetration**: 40%
-- **Education Cost Reduction**: 60%
+Your application is now live.
 
 ---
 
-## 🔮 **Vision 2030**
+# ⚙ Configuration
 
-**"Making quality education accessible to every student in their native language through AI"**
+The application supports configurable settings including:
 
-By 2030, we envision:
-- 🌍 **Global Expansion**: Support for 100+ languages worldwide
-- 🎓 **10M+ Students**: Serving students across developing nations
-- 🤖 **AI Tutors**: Personalized AI teaching assistants
-- 🏫 **Virtual Classrooms**: Immersive multilingual education experiences
-- 🌱 **Sustainable Impact**: Measurable improvement in regional education outcomes
+- Translation Language
+- Text Chunk Size
+- ChromaDB Storage
+- Quiz Generation
+- Summary Generation
 
----
-
-## 📋 **Appendices**
-
-### **A. Technical Specifications**
-- System architecture diagrams
-- Database schema
-- API specifications
-- Security protocols
-
-### **B. Market Research Data**
-- User surveys and feedback
-- Competitive analysis details
-- Market size calculations
-- Growth projections
-
-### **C. Financial Details**
-- Detailed financial models
-- Funding requirements
-- Investment terms
-- ROI calculations
-
-### **D. Legal Documentation**
-- Terms of service
-- Privacy policy
-- Intellectual property
-- Compliance certificates
+These can be modified directly from the Streamlit interface.
 
 ---
 
-**© 2024 Regional Language Study Bot. Democratizing education through AI-powered multilingual learning.**
+# 💾 ChromaDB Storage
+
+The uploaded document is converted into embeddings and stored in ChromaDB.
+
+Benefits include:
+
+- Faster document retrieval
+- Semantic search
+- Accurate question answering
+- Persistent vector storage
+
+---
+
+# 🔒 Security
+
+Sensitive information should never be committed.
+
+Ensure `.gitignore` contains:
+
+```gitignore
+.env
+
+venv/
+
+__pycache__/
+
+chroma_db/
+
+*.pyc
+```
+
+---
+
+# 📦 Requirements
+
+Core dependencies include:
+
+- Streamlit
+- LangChain
+- LangChain Community
+- LangChain Text Splitters
+- ChromaDB
+- Groq
+- Azure AI Translator
+- PyPDF
+- python-docx
+- requests
+- pydantic
+
+
+# 🎯 How to Use
+
+The application follows a simple and intuitive workflow.
+
+---
+
+## Step 1 — Upload a Document
+
+Supported formats:
+
+- PDF
+- DOCX
+- TXT
+
+Click **Browse Files** and select your document.
+
+The system automatically extracts text and prepares it for processing.
+
+---
+
+## Step 2 — Select Translation Language
+
+Choose any supported Indian regional language.
+
+Current supported languages include:
+
+- Hindi
+- Bengali
+- Tamil
+- Telugu
+- Marathi
+- Gujarati
+- Kannada
+- Malayalam
+- Punjabi
+- Odia
+- Assamese
+- Urdu
+- Nepali
+- Kashmiri
+- Sindhi
+- Konkani
+
+---
+
+## Step 3 — Start Processing
+
+Click
+
+```
+🚀 Process Document
+```
+
+The application performs the following tasks automatically:
+
+1. Extract text
+2. Split text into chunks
+3. Store embeddings in ChromaDB
+4. Generate Summary
+5. Generate Quiz
+6. Translate Summary
+7. Translate Quiz
+8. Translate Original Document
+
+---
+
+# 📚 Processing Pipeline
+
+```
+Document Upload
+        │
+        ▼
+Text Extraction
+        │
+        ▼
+Text Chunking
+        │
+        ▼
+Store in ChromaDB
+        │
+        ▼
+Groq LLM
+   │      │
+   │      │
+Summary   Quiz
+   │      │
+   └──┬───┘
+      ▼
+Azure AI Translator
+      │
+      ▼
+Translated Output
+```
+
+---
+
+# 🧠 AI Workflow
+
+## Document Processing
+
+The uploaded document is converted into plain text.
+
+Supported loaders include:
+
+- PyPDF
+- python-docx
+
+---
+
+## Text Chunking
+
+Large documents are divided into smaller chunks using
+
+```
+RecursiveCharacterTextSplitter
+```
+
+Benefits:
+
+- Better retrieval
+- Lower token usage
+- Faster AI responses
+
+---
+
+## Vector Database
+
+Each chunk is converted into embeddings and stored inside ChromaDB.
+
+This enables semantic search during Question Answering.
+
+---
+
+## Summary Generation
+
+Groq Llama 3.3 generates concise summaries while preserving important concepts.
+
+The summary focuses on:
+
+- Important topics
+- Key definitions
+- Core concepts
+- Important facts
+
+---
+
+## Quiz Generation
+
+The AI automatically creates
+
+- Multiple Choice Questions
+
+Each question contains
+
+- Question
+- Four options
+- Correct answer
+- Explanation
+
+making the application useful for revision.
+
+---
+
+## Translation
+
+Instead of running large local translation models,
+
+the project uses
+
+**Microsoft Azure AI Translator**
+
+Benefits:
+
+- Faster
+- Lightweight
+- Cloud-based
+- Better deployment experience
+- Lower RAM usage
+- No GPU requirement
+
+---
+
+# 💬 Document Question Answering
+
+After processing,
+
+users can ask questions such as:
+
+```
+What is Machine Learning?
+```
+
+```
+Explain the conclusion.
+```
+
+```
+Summarize Chapter 5.
+```
+
+```
+What are the key advantages?
+```
+
+The application retrieves relevant document chunks from ChromaDB before sending context to Groq.
+
+This improves answer quality and reduces hallucinations.
+
+---
+
+# 📊 Features
+
+| Feature | Supported |
+|----------|-----------|
+| PDF Upload | ✅ |
+| DOCX Upload | ✅ |
+| TXT Upload | ✅ |
+| AI Summary | ✅ |
+| AI Quiz | ✅ |
+| AI Question Answering | ✅ |
+| Azure Translation | ✅ |
+| 16 Indian Languages | ✅ |
+| ChromaDB Storage | ✅ |
+| Docker Deployment | ✅ |
+| AWS EC2 Deployment | ✅ |
+
+---
+
+# ⚡ Performance
+
+Compared to the previous architecture using local translation models,
+
+the current implementation offers:
+
+- Lower memory usage
+- Smaller Docker image
+- Faster translation
+- Better scalability
+- Cloud-native deployment
+
+---
+
+# 📷 Suggested Screenshots
+
+Add screenshots inside
+
+```
+assets/
+```
+
+Then include them in README.
+
+Example:
+
+```markdown
+## Home Screen
+
+![Home](assets/home.png)
+
+---
+
+## Summary Generation
+
+![Summary](assets/summary.png)
+
+---
+
+## Quiz Generation
+
+![Quiz](assets/quiz.png)
+
+---
+
+## Translation
+
+![Translation](assets/translation.png)
+
+---
+
+## Question Answering
+
+![Q&A](assets/qa.png)
+```
+
+---
+
+# 🛠 Troubleshooting
+
+## Azure Translation Not Working
+
+Check
+
+- Translator Key
+- Translator Endpoint
+- Translator Region
+
+inside
+
+```
+.env
+```
+
+---
+
+## Groq Error
+
+Verify
+
+```
+GROQ_API_KEY
+```
+
+is valid.
+
+---
+
+## ChromaDB Error
+
+Delete
+
+```
+chroma_db/
+```
+
+and restart the application.
+
+A fresh database will be created automatically.
+
+---
+
+## Docker Issues
+
+Rebuild the image:
+
+```bash
+docker build --no-cache -t ibm-study-bot .
+```
+
+---
+
+## Port Already in Use
+
+Run
+
+```bash
+streamlit run streamlit_study_bot.py --server.port 8502
+```
+
+or stop the existing process using port **8501**.
+
+---
+
+# 📈 Future Improvements
+
+Some planned enhancements include:
+
+- Voice-based Question Answering
+- Text-to-Speech
+- OCR for scanned documents
+- Image-based document understanding
+- PPT generation
+- Flashcard generation
+- Learning analytics dashboard
+- User authentication
+- Cloud database integration
+- Mobile application
+
+---
+
+# 🤝 Contributing
+
+Contributions are always welcome!
+
+If you'd like to improve this project:
+
+1. Fork the repository
+2. Create a new feature branch
+
+```bash
+git checkout -b feature/your-feature-name
+```
+
+3. Commit your changes
+
+```bash
+git commit -m "Add new feature"
+```
+
+4. Push to GitHub
+
+```bash
+git push origin feature/your-feature-name
+```
+
+5. Create a Pull Request
+
+---
+
+# 🌟 Why This Project?
+
+Millions of students in India study in regional languages while educational resources are often available only in English.
+
+This project aims to bridge that gap by using Artificial Intelligence to generate personalized study material and translate it into regional languages, making learning more accessible.
+
+---
+
+# 🚀 Future Roadmap
+
+### ✅ Current Features
+
+- AI-powered Summary Generation
+- AI-powered Quiz Generation
+- Retrieval-Augmented Document Q&A
+- Azure AI Translation
+- Docker Deployment
+- AWS EC2 Compatibility
+- ChromaDB Vector Search
+
+---
+
+## 🔜 Planned Features
+
+### 🎙 Voice Assistant
+
+- Voice-based Question Answering
+- Speech-to-Text
+- Text-to-Speech
+
+---
+
+### 📷 OCR Support
+
+Support scanned PDFs using OCR.
+
+Planned integrations:
+
+- EasyOCR
+- PaddleOCR
+
+---
+
+### 🖼 Image Understanding
+
+Extract information directly from
+
+- Charts
+- Tables
+- Diagrams
+- Images
+
+using Vision Language Models.
+
+---
+
+### 📚 Flashcard Generation
+
+Generate revision flashcards automatically from uploaded documents.
+
+---
+
+### 📊 Learning Dashboard
+
+Provide insights such as
+
+- Time spent
+- Quiz performance
+- Weak topics
+- Progress tracking
+
+---
+
+### 📱 Mobile Application
+
+Future Android and iOS application.
+
+---
+
+### 👥 User Authentication
+
+Support for
+
+- Google Login
+- Microsoft Login
+- GitHub Login
+
+---
+
+### ☁ Cloud Database
+
+Replace local storage with cloud databases such as
+
+- MongoDB Atlas
+- PostgreSQL
+- Supabase
+
+---
+
+### 📈 Analytics
+
+Track
+
+- Popular topics
+- Frequently asked questions
+- User engagement
+- Learning statistics
+
+---
+
+# 🏆 Project Highlights
+
+✔ AI-Powered Educational Platform
+
+✔ Retrieval-Augmented Generation (RAG)
+
+✔ Cloud-based Translation using Azure AI Translator
+
+✔ Multilingual Learning
+
+✔ Dockerized Deployment
+
+✔ AWS EC2 Ready
+
+✔ Modular Architecture
+
+✔ Scalable Design
+
+✔ Modern Python Stack
+
+✔ Industry-standard AI APIs
+
+---
+
+# 📋 Tech Summary
+
+| Category | Technology |
+|----------|------------|
+| Language | Python |
+| Frontend | Streamlit |
+| LLM | Groq Llama 3.3-70B |
+| Translation | Azure AI Translator |
+| Framework | LangChain |
+| Vector Database | ChromaDB |
+| Containerization | Docker |
+| Cloud | AWS EC2 |
+| Version Control | Git & GitHub |
+
+---
+
+# 🎯 Learning Outcomes
+
+This project demonstrates practical experience with:
+
+- Large Language Models (LLMs)
+- Retrieval-Augmented Generation (RAG)
+- Vector Databases
+- Cloud AI Services
+- REST APIs
+- Docker
+- AWS EC2 Deployment
+- Environment Variable Management
+- Streamlit Development
+- Production-ready AI Application Design
+
+---
+
+# 📜 License
+
+This project is licensed under the MIT License.
+
+Feel free to use, modify and distribute it in accordance with the license terms.
+
+---
+
+# 🙏 Acknowledgements
+
+This project makes use of several excellent open-source technologies and cloud services.
+
+Special thanks to:
+
+- Groq
+- Microsoft Azure AI Translator
+- LangChain
+- ChromaDB
+- Streamlit
+- Python Community
+
+---
+
+# ⭐ If you like this project
+
+Please consider giving it a ⭐ on GitHub.
+
+It helps others discover the project and motivates further development.
+
+---
+
+# 📬 Contact
+
+**Bhavya Batra**
+
+B.Tech Artificial Intelligence & Machine Learning
+
+University School of Automation & Robotics (USAR)
+
+Guru Gobind Singh Indraprastha University
+
+GitHub: https://github.com/<your-github>
+
+LinkedIn: https://linkedin.com/in/<your-linkedin>
+
+Email: your-email@example.com
+
+---
+
+# 📌 Citation
+
+If you use this project in your research or academic work, please consider citing it.
+
+```text
+
+Regional Language Study Bot:
+AI-powered multilingual document processing platform
+using Groq, Azure AI Translator and LangChain.
+2026.
+```
+
+---
+
+## ⭐ Star History
+
+If this project helped you, don't forget to leave a ⭐ on GitHub!
+
+---
+
+<p align="center">
+
+Made with ❤️ using
+
+**Python • Streamlit • Groq • Azure AI Translator • LangChain • ChromaDB • Docker • AWS**
+
+</p>
