@@ -89,10 +89,11 @@ def import_with_retry(module_name, max_retries=5, retry_delay=3, timeout=60):
     return None
 
 # Try importing pysqlite3 with retries
-try:
-    import_with_retry('pysqlite3')
-except ImportError:
-    print("SQLite compatibility layer not available, using system SQLite")
+if not sys.platform.startswith("win"):
+    try:
+        import_with_retry("pysqlite3")
+    except ImportError:
+        print("SQLite compatibility layer not available, using system SQLite")
 
 import streamlit as st
 import tempfile
@@ -126,12 +127,12 @@ if is_cloud_deployment:
 load_env()
 
 # Fix SQLite3 issue for Streamlit Cloud
-try:
-    __import__('pysqlite3')
-    import sys
-    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
-except ImportError:
-    pass
+if not sys.platform.startswith("win"):
+    try:
+        __import__("pysqlite3")
+        sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+    except ImportError:
+        pass
 
 # Imports after env loading
 try:
@@ -1374,12 +1375,12 @@ def display_results(target_language):
         with col1:
             st.write("**Original Text:**")
             # Show full text but with scrollable area
-            st.text_area("", st.session_state.extracted_text, height=400, disabled=True, key="original_full")
+            st.text_area("Original Text", st.session_state.extracted_text, height=400, disabled=True, label_visibility="collapsed", key="original_full")
         
         with col2:
             st.write(f"**{target_language} Translation:**")
             # Show full translated text
-            st.text_area("", st.session_state.translated_text, height=400, disabled=True, key="translated_full")
+            st.text_area("Translated Text", st.session_state.translated_text, height=400, disabled=True,label_visibility="collapsed", key="translated_full")
     
     # Download options
     st.subheader("💾 Download Results")
