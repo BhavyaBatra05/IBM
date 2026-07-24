@@ -35,6 +35,14 @@ def check_env():
         return False
     
     print(f"✅ GROQ_API_KEY: {groq_key[:20]}...")
+
+    azure_key = os.getenv("AZURE_TRANSLATOR_KEY")
+    azure_region = os.getenv("AZURE_TRANSLATOR_REGION")
+    if azure_key and azure_region:
+        print(f"✅ AZURE_TRANSLATOR_KEY: {azure_key[:8]}... (region: {azure_region})")
+    else:
+        print("⚠️  AZURE_TRANSLATOR_KEY / AZURE_TRANSLATOR_REGION not set - translation will use fallback text")
+
     return True
 
 def main():
@@ -47,8 +55,14 @@ def main():
         print("❌ Environment check failed!")
         return
     
+    # On Elastic Beanstalk / Docker (and most cloud platforms) the app must
+    # bind to 0.0.0.0 and to the port the platform assigns via $PORT, not to
+    # localhost:8501 which is only reachable from inside the container.
+    port = os.getenv("PORT", "8501")
+    address = "0.0.0.0" if os.getenv("PORT") else "localhost"
+
     print("🚀 Starting Streamlit app...")
-    print("🌐 The app will open in your browser at: http://localhost:8501")
+    print(f"🌐 Listening on {address}:{port}")
     print("⚠️  Press Ctrl+C to stop the application")
     print("-" * 60)
     
@@ -57,8 +71,9 @@ def main():
         subprocess.run([
             sys.executable, "-m", "streamlit", "run", 
             "streamlit_study_bot.py",
-            "--server.address", "localhost",
-            "--server.port", "8501",
+            "--server.address", address,
+            "--server.port", port,
+            "--server.headless", "true",
             "--browser.gatherUsageStats", "false"
         ])
     except KeyboardInterrupt:

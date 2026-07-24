@@ -2,6 +2,7 @@
 """
 Regional Language Study Bot - Streamlit App
 Complete workflow: PDF/DOC extraction -> Summary -> Quiz -> Translation to Indian Languages
+Translation is powered by Azure AI Translator.
 """
 
 # Import streamlit first
@@ -143,9 +144,11 @@ try:
     # langchain reorganized text splitter modules across versions -- try both locations
     RecursiveCharacterTextSplitter = None
     try:
-        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        # Current (langchain >= 0.2): splitter lives in its own package
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
     except Exception:
         try:
+            # Older langchain releases
             from langchain.text_splitter import RecursiveCharacterTextSplitter
         except Exception:
             RecursiveCharacterTextSplitter = None
@@ -166,20 +169,18 @@ try:
         st.info("💡 App will use in-memory storage instead")
         CHROMADB_AVAILABLE = False
     
-    # Translation models using Hugging Face Pipeline with retries
-    NLLB_TRANSLATION_AVAILABLE = False
-    try:
-        # Direct import with proper error handling
-        import transformers
-        from transformers import pipeline
-        torch = import_with_retry('torch')
-        sentencepiece = import_with_retry('sentencepiece')
-        NLLB_TRANSLATION_AVAILABLE = True
-        st.success("🚀 NLLB-200 translation pipeline available")
-    except Exception as e:
-        print(f"Translation import issue: {e}")
+    # Azure AI Translator configuration (replaces the local NLLB-200 model)
+    AZURE_TRANSLATOR_KEY = os.getenv("AZURE_TRANSLATOR_KEY")
+    AZURE_TRANSLATOR_REGION = os.getenv("AZURE_TRANSLATOR_REGION")
+    AZURE_TRANSLATOR_ENDPOINT = os.getenv(
+        "AZURE_TRANSLATOR_ENDPOINT", "https://api.cognitive.microsofttranslator.com"
+    )
+    AZURE_TRANSLATION_AVAILABLE = bool(AZURE_TRANSLATOR_KEY and AZURE_TRANSLATOR_REGION)
+    if AZURE_TRANSLATION_AVAILABLE:
+        st.success("🚀 Azure AI Translator configured")
+    else:
+        print("Azure Translator not configured (missing AZURE_TRANSLATOR_KEY / AZURE_TRANSLATOR_REGION)")
         print("💡 App will use simplified translation display")
-        NLLB_TRANSLATION_AVAILABLE = False
         
 except ImportError as e:
     print(f"Required packages not installed: {e}")
@@ -188,25 +189,26 @@ except ImportError as e:
 # Page config already set at the top of the file
 # Language mapping setup continues here
 
-# Language mapping for NLLB-200 model
+# Language mapping for Azure AI Translator (ISO language codes)
+# Note: Sanskrit is not in Azure Translator's supported language list, so it's
+# omitted here. See: https://learn.microsoft.com/azure/ai-services/translator/language-support
 INDIAN_LANGUAGES = {
-    "Hindi": "hin_Deva",
-    "Bengali": "ben_Beng", 
-    "Tamil": "tam_Taml",
-    "Telugu": "tel_Telu",
-    "Marathi": "mar_Deva",
-    "Gujarati": "guj_Gujr",
-    "Kannada": "kan_Knda",
-    "Malayalam": "mal_Mlym",
-    "Punjabi": "pan_Guru",
-    "Odia": "ory_Orya",
-    "Assamese": "asm_Beng",
-    "Urdu": "urd_Arab",
-    "Nepali": "npi_Deva",
-    "Sanskrit": "san_Deva",
-    "Kashmiri": "kas_Arab",
-    "Sindhi": "snd_Arab",
-    "Konkani": "kok_Deva"
+    "Hindi": "hi",
+    "Bengali": "bn",
+    "Tamil": "ta",
+    "Telugu": "te",
+    "Marathi": "mr",
+    "Gujarati": "gu",
+    "Kannada": "kn",
+    "Malayalam": "ml",
+    "Punjabi": "pa",
+    "Odia": "or",
+    "Assamese": "as",
+    "Urdu": "ur",
+    "Nepali": "ne",
+    "Kashmiri": "ks",
+    "Sindhi": "sd",
+    "Konkani": "gom"
 }
 
 # Initialize session state
@@ -237,29 +239,27 @@ def init_session_state():
 
 # Load models (cached)
 @st.cache_resource
-def load_translation_pipeline():
-    """Load Facebook NLLB-200 translation pipeline (deployment-friendly).
+def get_azure_translator_session():
+    """Create a reusable requests.Session configured for Azure AI Translator.
 
-    This version is deployment-friendly (uses the transformers pipeline API).
-    If the NLLB translation support isn't available we return None and the
-    app falls back to non-translated behavior.
+    Returns None if Azure Translator credentials aren't configured, in which
+    case the app falls back to non-translated behavior.
     """
-    if not NLLB_TRANSLATION_AVAILABLE:
-        st.info("ℹ️ Translation pipeline not available, using fallback")
+    if not AZURE_TRANSLATION_AVAILABLE:
+        st.info("ℹ️ Azure Translator not configured, using fallback")
         return None
 
     try:
-        # Use pipeline API which handles tokenizer and model automatically
-        translator = pipeline(
-            "translation",
-            model="facebook/nllb-200-distilled-600M",
-            device=-1,  # Use CPU for compatibility
-            torch_dtype="auto"
-        )
-        st.success("✅ NLLB-200 translation pipeline loaded")
-        return translator
+        session = requests.Session()
+        session.headers.update({
+            "Ocp-Apim-Subscription-Key": AZURE_TRANSLATOR_KEY,
+            "Ocp-Apim-Subscription-Region": AZURE_TRANSLATOR_REGION,
+            "Content-type": "application/json",
+        })
+        st.success("✅ Azure Translator session ready")
+        return session
     except Exception as e:
-        st.warning(f"Failed to load translation pipeline: {e}")
+        st.warning(f"Failed to set up Azure Translator session: {e}")
         return None
 
 @st.cache_resource
@@ -273,7 +273,7 @@ def load_groq_llm():
         
         llm = ChatGroq(
             api_key=SecretStr(groq_api_key),
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",  # llama-3.3-70b-versatile was deprecated by Groq in June 2026
             temperature=0.1
         )
         return llm
@@ -512,7 +512,7 @@ def translate_quiz_properly(quiz_json_str: str, target_language_code: str) -> st
         
         if not questions:
             st.warning("⚠️ No questions found in quiz data, falling back to direct translation")
-            return translate_text_nllb(quiz_json_str, target_language_code)
+            return translate_text_azure(quiz_json_str, target_language_code)
         
         st.success(f"✅ Found {len(questions)} questions to translate")
         
@@ -532,7 +532,7 @@ def translate_quiz_properly(quiz_json_str: str, target_language_code: str) -> st
             # Translate question text
             question_text = question.get("question", "")
             if question_text:
-                translated_question = translate_text_nllb(question_text, target_language_code)
+                translated_question = translate_text_azure(question_text, target_language_code)
             else:
                 translated_question = ""
                 
@@ -546,11 +546,11 @@ def translate_quiz_properly(quiz_json_str: str, target_language_code: str) -> st
                 # Extract the letter prefix (A., B., etc.) and text
                 if '. ' in option and len(option.split('. ', 1)) == 2:
                     prefix, text = option.split('. ', 1)
-                    translated_text = translate_text_nllb(text, target_language_code)
+                    translated_text = translate_text_azure(text, target_language_code)
                     translated_options.append(f"{prefix}. {translated_text}")
                 else:
                     # If no standard prefix, translate the whole option
-                    translated_options.append(translate_text_nllb(option, target_language_code))
+                    translated_options.append(translate_text_azure(option, target_language_code))
             
             completed += 1
             progress_bar.progress(completed / total_items)
@@ -559,7 +559,7 @@ def translate_quiz_properly(quiz_json_str: str, target_language_code: str) -> st
             explanation = question.get("explanation", "")
             translated_explanation = ""
             if explanation:
-                translated_explanation = translate_text_nllb(explanation, target_language_code)
+                translated_explanation = translate_text_azure(explanation, target_language_code)
             
             completed += 1
             progress_bar.progress(completed / total_items)
@@ -592,10 +592,10 @@ def translate_quiz_properly(quiz_json_str: str, target_language_code: str) -> st
     except json.JSONDecodeError as e:
         st.error(f"Error parsing original quiz JSON: {e}")
         # Fallback to direct translation (which might break JSON)
-        return translate_text_nllb(quiz_json_str, target_language_code)
+        return translate_text_azure(quiz_json_str, target_language_code)
     except Exception as e:
         st.error(f"Error in structured quiz translation: {e}")
-        return translate_text_nllb(quiz_json_str, target_language_code)
+        return translate_text_azure(quiz_json_str, target_language_code)
 
 def generate_quiz_with_groq(text: str) -> str:
     """Generate quiz using Groq LLM"""
@@ -669,40 +669,69 @@ def generate_quiz_with_groq(text: str) -> str:
         st.error(f"Error generating quiz: {e}")
         return f"Error generating quiz: {str(e)}"
 
-# Removed old translate_chunk_nllb - now using pipeline approach
+# Removed old translate_chunk_nllb - now using Azure Translator REST API
 
-def translate_text_nllb_pipeline(text: str, target_language_code: str) -> str:
-    """Translate text using NLLB-200 pipeline (deployment-friendly)"""
+def _azure_translate_call(session, texts: List[str], target_language_code: str) -> List[str]:
+    """Call Azure Translator"""
+
+    url = f"{AZURE_TRANSLATOR_ENDPOINT.rstrip('/')}/translate"
+
+    params = {
+        "api-version": "3.0",
+        "to": target_language_code
+    }
+
+    headers = {
+        "Ocp-Apim-Subscription-Key": AZURE_TRANSLATOR_KEY,
+        "Ocp-Apim-Subscription-Region": AZURE_TRANSLATOR_REGION,
+        "Content-Type": "application/json"
+    }
+
+    body = [{"text": t} for t in texts]
+
+    response = session.post(
+        url,
+        params=params,
+        headers=headers,
+        json=body,
+        timeout=30
+    )
+
+    response.raise_for_status()
+
+    result = response.json()
+
+    return [item["translations"][0]["text"] for item in result]
+
+def translate_text_azure_api(text: str, target_language_code: str) -> str:
+    """Translate text using Azure AI Translator (deployment-friendly, no local model)"""
     try:
-        translator = load_translation_pipeline()
-        if not translator:
-            return f"Translation Error: Could not load translation pipeline"
-        
-        # Split long text into chunks (pipelines have token limits)
-        max_length = 400  # Conservative limit for stability
+        session = get_azure_translator_session()
+        if not session:
+            return "Translation Error: Could not set up Azure Translator session"
+
+        # Azure comfortably handles a few thousand characters per element;
+        # chunk conservatively so progress can be shown on long documents.
+        max_length = 4000
         if len(text) <= max_length:
-            # Short text, translate directly
-            result = translator(text, src_lang="eng_Latn", tgt_lang=target_language_code)
-            return result[0]['translation_text']
-        
-        # Long text, split into chunks
-        chunks = [text[i:i+max_length] for i in range(0, len(text), max_length)]
+            return _azure_translate_call(session, [text], target_language_code)[0]
+
+        chunks = [text[i:i + max_length] for i in range(0, len(text), max_length)]
         translated_chunks = []
-        
+
         # Show progress
         progress = st.progress(0)
         for i, chunk in enumerate(chunks):
-            result = translator(chunk, src_lang="eng_Latn", tgt_lang=target_language_code)
-            translated_chunks.append(result[0]['translation_text'])
+            translated_chunks.append(_azure_translate_call(session, [chunk], target_language_code)[0])
             progress.progress((i + 1) / len(chunks))
-        
+
         progress.empty()
         return " ".join(translated_chunks)
-        
+
     except Exception as e:
         return f"Translation Error: {str(e)}"
 
-# Removed Google Translate function - using NLLB pipeline instead
+# Removed Google Translate function - using Azure Translator instead
 
 def translate_text_simple_fallback(text: str, target_language: str) -> str:
     """Simple fallback translation using basic text replacement"""
@@ -732,8 +761,8 @@ Original English Content:
 For now, you can use the English content above for study purposes.
 """
 
-def translate_text_nllb(text: str, target_language_code: str) -> str:
-    """Main translation function using NLLB pipeline"""
+def translate_text_azure(text: str, target_language_code: str) -> str:
+    """Main translation function using Azure AI Translator"""
     # Get target language name
     target_language = None
     for lang, code in INDIAN_LANGUAGES.items():
@@ -741,13 +770,12 @@ def translate_text_nllb(text: str, target_language_code: str) -> str:
             target_language = lang
             break
     
-    # Try NLLB pipeline if available
-    if NLLB_TRANSLATION_AVAILABLE:
+    # Try Azure Translator if available
+    if AZURE_TRANSLATION_AVAILABLE:
         try:
-            st.info("🚀 Using NLLB-200 translation pipeline")
-            return translate_text_nllb_pipeline(text, target_language_code)
+            return translate_text_azure_api(text, target_language_code)
         except Exception as e:
-            st.warning(f"NLLB translation failed: {e}")
+            st.warning(f"Azure Translator failed: {e}")
     
     # Fallback to simple placeholder
     return translate_text_simple_fallback(text, target_language or "Unknown")
@@ -1056,16 +1084,16 @@ def main():
             st.error("❌ Groq LLM Failed")
             st.stop()
         
-        # Check Translation Pipeline
-        if NLLB_TRANSLATION_AVAILABLE:
-            translator = load_translation_pipeline()
-            if translator:
-                st.success("✅ NLLB-200 Advanced Translation Ready")
+        # Check Translation Service
+        if AZURE_TRANSLATION_AVAILABLE:
+            translator_session = get_azure_translator_session()
+            if translator_session:
+                st.success("✅ Azure Translator Ready")
             else:
-                st.warning("⚠️ NLLB-200 Failed, using fallback")
+                st.warning("⚠️ Azure Translator Failed, using fallback")
         else:
             st.error("❌ No Translation Service Available")
-            st.info("💡 App will work with limited functionality")
+            st.info("💡 Set AZURE_TRANSLATOR_KEY and AZURE_TRANSLATOR_REGION to enable translation")
         
         # Storage status
         if CHROMADB_AVAILABLE:
@@ -1207,14 +1235,14 @@ def process_document(uploaded_file, target_language, chunk_size, translation_chu
             status_text.text(f"🌐 Translating full text to {target_language}...")
         progress_bar.progress(70)
         
-        # Translate FULL extracted text using NLLB pipeline
-        translated_text = translate_text_nllb(extracted_text, target_lang_code)
+        # Translate FULL extracted text using Azure Translator
+        translated_text = translate_text_azure(extracted_text, target_lang_code)
         st.session_state.translated_text = translated_text
         
         progress_bar.progress(80)
         
         # Translate summary
-        translated_summary = translate_text_nllb(summary, target_lang_code)
+        translated_summary = translate_text_azure(summary, target_lang_code)
         st.session_state.translated_summary = translated_summary
         
         progress_bar.progress(90)
@@ -1256,7 +1284,7 @@ def process_user_query(query, target_language):
             # Translate response
             target_lang_code = INDIAN_LANGUAGES[target_language]
             response_text = response.content if hasattr(response, 'content') else str(response)
-            translated_response = translate_text_nllb(str(response_text), target_lang_code)
+            translated_response = translate_text_azure(str(response_text), target_lang_code)
             
             # Display results
             st.subheader("🔍 Query Response")

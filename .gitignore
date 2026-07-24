@@ -6,3 +6,4 @@
 .early.coverage
 /Dockerfile
 /.dockerignore
+__pycache__/
