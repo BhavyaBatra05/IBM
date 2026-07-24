@@ -1101,24 +1101,6 @@ It helps others discover the project and motivates further development.
 
 ---
 
-# 📬 Contact
-
-**Bhavya Batra**
-
-B.Tech Artificial Intelligence & Machine Learning
-
-University School of Automation & Robotics (USAR)
-
-Guru Gobind Singh Indraprastha University
-
-GitHub: https://github.com/<your-github>
-
-LinkedIn: https://linkedin.com/in/<your-linkedin>
-
-Email: your-email@example.com
-
----
-
 # 📌 Citation
 
 If you use this project in your research or academic work, please consider citing it.
