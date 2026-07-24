@@ -206,24 +206,6 @@ Azure AI Translator performs automatic language translation with high accuracy w
 
 ---
 
-# 📷 Application Preview
-
-> Add screenshots here.
-
-Example:
-
-```
-images/home.png
-
-images/summary.png
-
-images/quiz.png
-
-images/translation.png
-```
-
-These screenshots help visitors quickly understand the application.
-
 # 📁 Project Structure
 
 ```
@@ -778,20 +760,6 @@ the current implementation offers:
 - Cloud-native deployment
 
 ---
-
-# 📷 Suggested Screenshots
-
-Add screenshots inside
-
-```
-assets/
-```
-
-Then include them in README.
-
-Example:
-
-```markdown
 ## Home Screen
 
 ![Home](assets/home.png)
