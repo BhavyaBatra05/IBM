@@ -21,7 +21,6 @@ import sys
 import os
 import time
 import socket
-import subprocess
 from contextlib import contextmanager
 
 # Function to wait for supervisor connection on cloud deployment
@@ -102,8 +101,6 @@ import json
 import shutil
 from pathlib import Path
 from typing import List, Dict, Any
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Load environment variables
 def load_env():
@@ -723,12 +720,21 @@ def translate_text_azure_api(text: str, target_language_code: str, chunk_size: i
             return _azure_translate_call(session, [text], target_language_code)[0]
 
         chunks = [text[i:i + max_length] for i in range(0, len(text), max_length)]
-        translated_chunks = []
+        
 
         # Show progress
         progress = st.progress(0)
+        translated_chunks = []
+
         for i, chunk in enumerate(chunks):
-            translated_chunks.append(_azure_translate_call(session, [chunk], target_language_code)[0])
+            translated_chunks.append(
+                _azure_translate_call(
+                    session,
+                    [chunk],
+                    target_language_code
+                )[0]
+            )
+
             progress.progress((i + 1) / len(chunks))
 
         progress.empty()
@@ -1141,7 +1147,6 @@ def main():
         chunk_size = st.slider("Text Chunk Size", 1000, 5000, 2000, 500)
         translation_chunk_size = st.slider("Translation Chunk Size", 200, 800, 400, 100)
         store_in_db = st.checkbox("Store chunks in ChromaDB", value=True)
-        parallel_translation = st.checkbox("Parallel Translation", value=True)
     
     # Main content area
     col1, col2 = st.columns([1, 1])
@@ -1164,7 +1169,7 @@ def main():
             
             # Process button
             if st.button("🚀 Start Processing", type="primary"):
-                process_document(uploaded_file, selected_language, chunk_size, translation_chunk_size, store_in_db, parallel_translation)
+                process_document(uploaded_file, selected_language, chunk_size, translation_chunk_size, store_in_db)
     
     with col2:
         st.header("💬 User Query")
@@ -1183,7 +1188,7 @@ def main():
     if st.session_state.processing_complete:
         display_results(selected_language)
 
-def process_document(uploaded_file, target_language, chunk_size, translation_chunk_size, store_in_db, parallel_translation):
+def process_document(uploaded_file, target_language, chunk_size, translation_chunk_size, store_in_db):
     """Process the uploaded document with configurable translation settings"""
     
     progress_bar = st.progress(0)
@@ -1234,13 +1239,10 @@ def process_document(uploaded_file, target_language, chunk_size, translation_chu
         quiz = generate_quiz_with_groq(summary)
         st.session_state.quiz = quiz
         
-        # Step 6: Translate content with parallel processing
+        # Step 6: Translate content with sequential processing
         target_lang_code = INDIAN_LANGUAGES[target_language]
         
-        if parallel_translation:
-            status_text.text(f"🚀 Translating full text to {target_language} (Parallel Processing)...")
-        else:
-            status_text.text(f"🌐 Translating full text to {target_language}...")
+        status_text.text(f"🚀 Translating full text to {target_language}")
         progress_bar.progress(70)
         
         # Translate FULL extracted text using Azure Translator
