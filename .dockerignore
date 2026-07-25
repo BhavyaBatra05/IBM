@@ -1,23 +1,101 @@
-venv/
+# -------------------------------
+# Git
+# -------------------------------
+.git
+.gitignore
+.gitattributes
+
+# -------------------------------
+# Python
+# -------------------------------
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 *.pyo
 *.pyd
 
-.git
-.gitignore
+# -------------------------------
+# Virtual Environments
+# -------------------------------
+venv/
+.venv/
+env/
+ENV/
 
-.env
+# -------------------------------
+# Python Caches
+# -------------------------------
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.ruff_cache/
+.cache/
 
-chroma_db/
-.early.coverage/
-
-packages.txt
-
-README.md
-README_streamlit.md
-DEPLOY.md
-DEPLOYMENT_GUIDE.md
-
+# -------------------------------
+# IDEs & Editors
+# -------------------------------
 .vscode/
 .idea/
+
+# -------------------------------
+# Operating System Files
+# -------------------------------
+.DS_Store
+Thumbs.db
+
+# -------------------------------
+# Logs
+# -------------------------------
+*.log
+
+# -------------------------------
+# Environment Variables
+# -------------------------------
+.env
+.env.*
+!.env.example
+
+# -------------------------------
+# ChromaDB & Local Databases
+# -------------------------------
+chroma_db/
+*.sqlite3
+*.db
+
+# -------------------------------
+# Build Artifacts
+# -------------------------------
+build/
+dist/
+*.egg-info/
+
+# -------------------------------
+# Jupyter
+# -------------------------------
+.ipynb_checkpoints/
+*.ipynb
+
+# -------------------------------
+# Temporary Files
+# -------------------------------
+*.tmp
+*.temp
+
+# -------------------------------
+# Test & Benchmark Data
+# -------------------------------
+tests/
+benchmark/
+benchmarks/
+
+# -------------------------------
+# Large Local Files
+# -------------------------------
+*.zip
+*.7z
+*.tar
+*.gz
+
+# Optional: Ignore sample documents
+sample_documents/
+test_documents/

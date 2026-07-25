@@ -162,7 +162,6 @@ try:
         import chromadb
         from chromadb.utils import embedding_functions
         CHROMADB_AVAILABLE = True
-        st.success("✅ ChromaDB vector storage available")
     except Exception as e:
         st.warning(f"ChromaDB import issue: {str(e)}")
         # Continue app execution even if ChromaDB fails
@@ -228,6 +227,10 @@ def init_session_state():
         st.session_state.translated_quiz = ""
     if 'processing_complete' not in st.session_state:
         st.session_state.processing_complete = False
+    if 'last_selected_language' not in st.session_state:
+        st.session_state.last_selected_language = None
+    if 'translation_generated_for' not in st.session_state:
+        st.session_state.translation_generated_for = None
     if 'quiz_started' not in st.session_state:
         st.session_state.quiz_started = False
     if 'quiz_answers' not in st.session_state:
@@ -246,7 +249,7 @@ def get_azure_translator_session():
     case the app falls back to non-translated behavior.
     """
     if not AZURE_TRANSLATION_AVAILABLE:
-        st.info("ℹ️ Azure Translator not configured, using fallback")
+        print("Azure Translator not configured")
         return None
 
     try:
@@ -256,7 +259,6 @@ def get_azure_translator_session():
             "Ocp-Apim-Subscription-Region": AZURE_TRANSLATOR_REGION,
             "Content-type": "application/json",
         })
-        st.success("✅ Azure Translator session ready")
         return session
     except Exception as e:
         st.warning(f"Failed to set up Azure Translator session: {e}")
@@ -290,7 +292,7 @@ def setup_chromadb():
     in-memory client and return a collection-like interface where possible.
     """
     if not CHROMADB_AVAILABLE:
-        st.info("📁 Using in-memory document storage (ChromaDB not available)")
+        print("Using in-memory document storage")
         return None
 
     try:
@@ -305,7 +307,7 @@ def setup_chromadb():
 
         # Initialize ChromaDB client with error handling
         try:
-            client = chromadb.PersistentClient(path="./chroma_db")
+            client = chromadb.Client()
         except Exception as client_error:
             st.warning(f"ChromaDB client creation failed, falling back to in-memory client: {client_error}")
             try:
@@ -469,7 +471,7 @@ def generate_summary_with_groq(text: str) -> str:
         st.error(f"Error generating summary: {e}")
         return f"Error generating summary: {str(e)}"
 
-def translate_quiz_properly(quiz_json_str: str, target_language_code: str) -> str:
+def translate_quiz_properly(quiz_json_str: str, target_language_code: str, translation_chunk_size=400) -> str:
     """Translate quiz while preserving JSON structure"""
     try:
         st.info("🔧 Starting structured quiz translation...")
@@ -532,7 +534,7 @@ def translate_quiz_properly(quiz_json_str: str, target_language_code: str) -> st
             # Translate question text
             question_text = question.get("question", "")
             if question_text:
-                translated_question = translate_text_azure(question_text, target_language_code)
+                translated_question = translate_text_azure(question_text, target_language_code, translation_chunk_size)
             else:
                 translated_question = ""
                 
@@ -546,11 +548,11 @@ def translate_quiz_properly(quiz_json_str: str, target_language_code: str) -> st
                 # Extract the letter prefix (A., B., etc.) and text
                 if '. ' in option and len(option.split('. ', 1)) == 2:
                     prefix, text = option.split('. ', 1)
-                    translated_text = translate_text_azure(text, target_language_code)
+                    translated_text = translate_text_azure(text, target_language_code, translation_chunk_size)
                     translated_options.append(f"{prefix}. {translated_text}")
                 else:
                     # If no standard prefix, translate the whole option
-                    translated_options.append(translate_text_azure(option, target_language_code))
+                    translated_options.append(translate_text_azure(option, target_language_code, translation_chunk_size))
             
             completed += 1
             progress_bar.progress(completed / total_items)
@@ -559,7 +561,7 @@ def translate_quiz_properly(quiz_json_str: str, target_language_code: str) -> st
             explanation = question.get("explanation", "")
             translated_explanation = ""
             if explanation:
-                translated_explanation = translate_text_azure(explanation, target_language_code)
+                translated_explanation = translate_text_azure(explanation, target_language_code, translation_chunk_size)
             
             completed += 1
             progress_bar.progress(completed / total_items)
@@ -585,9 +587,13 @@ def translate_quiz_properly(quiz_json_str: str, target_language_code: str) -> st
         
         # Return properly formatted JSON
         final_json = json.dumps(translated_quiz, ensure_ascii=False, indent=2)
-        st.success(f"🎉 Successfully translated quiz to {target_language_code} ({len(final_json)} chars)")
-        
-        return final_json
+        language_name = next(
+            (name for name, code in INDIAN_LANGUAGES.items() if code == target_language_code),
+            target_language_code)
+        st.success(
+            f"🎉 Quiz translated successfully to {language_name}!"
+        )
+        return final_json   
         
     except json.JSONDecodeError as e:
         st.error(f"Error parsing original quiz JSON: {e}")
@@ -703,7 +709,7 @@ def _azure_translate_call(session, texts: List[str], target_language_code: str) 
 
     return [item["translations"][0]["text"] for item in result]
 
-def translate_text_azure_api(text: str, target_language_code: str) -> str:
+def translate_text_azure_api(text: str, target_language_code: str, chunk_size: int = 400) -> str:
     """Translate text using Azure AI Translator (deployment-friendly, no local model)"""
     try:
         session = get_azure_translator_session()
@@ -712,7 +718,7 @@ def translate_text_azure_api(text: str, target_language_code: str) -> str:
 
         # Azure comfortably handles a few thousand characters per element;
         # chunk conservatively so progress can be shown on long documents.
-        max_length = 4000
+        max_length = chunk_size
         if len(text) <= max_length:
             return _azure_translate_call(session, [text], target_language_code)[0]
 
@@ -761,7 +767,7 @@ Original English Content:
 For now, you can use the English content above for study purposes.
 """
 
-def translate_text_azure(text: str, target_language_code: str) -> str:
+def translate_text_azure(text: str, target_language_code: str, chunk_size: int = 400) -> str:
     """Main translation function using Azure AI Translator"""
     # Get target language name
     target_language = None
@@ -773,7 +779,7 @@ def translate_text_azure(text: str, target_language_code: str) -> str:
     # Try Azure Translator if available
     if AZURE_TRANSLATION_AVAILABLE:
         try:
-            return translate_text_azure_api(text, target_language_code)
+            return translate_text_azure_api(text, target_language_code, chunk_size)
         except Exception as e:
             st.warning(f"Azure Translator failed: {e}")
     
@@ -1123,8 +1129,10 @@ def main():
             options=list(INDIAN_LANGUAGES.keys()),
             index=0
         )
-        
-        st.info(f"Selected: **{selected_language}**")
+        # Detect language change
+        if selected_language != st.session_state.last_selected_language:
+            st.session_state.last_selected_language = selected_language
+        st.caption(f"Selected Language: {selected_language}")
         
         st.divider()
         
@@ -1236,26 +1244,27 @@ def process_document(uploaded_file, target_language, chunk_size, translation_chu
         progress_bar.progress(70)
         
         # Translate FULL extracted text using Azure Translator
-        translated_text = translate_text_azure(extracted_text, target_lang_code)
+        translated_text = translate_text_azure(extracted_text, target_lang_code, translation_chunk_size)
         st.session_state.translated_text = translated_text
         
         progress_bar.progress(80)
         
         # Translate summary
-        translated_summary = translate_text_azure(summary, target_lang_code)
+        translated_summary = translate_text_azure(summary, target_lang_code, translation_chunk_size)
         st.session_state.translated_summary = translated_summary
         
         progress_bar.progress(90)
         
         # Translate quiz using structured translation to preserve JSON format
         status_text.text(f"❓ Translating quiz to {target_language} (preserving structure)...")
-        translated_quiz = translate_quiz_properly(quiz, target_lang_code)
+        translated_quiz = translate_quiz_properly(quiz, target_lang_code, translation_chunk_size)
         st.session_state.translated_quiz = translated_quiz
         
         # Complete
         progress_bar.progress(100)
         status_text.text("✅ Processing complete!")
         st.session_state.processing_complete = True
+        st.session_state.translation_generated_for = target_language    
         
         time.sleep(1)
         st.rerun()
@@ -1319,7 +1328,10 @@ def display_results(target_language):
         
         with col2:
             st.write(f"**{target_language} Summary:**")
-            st.write(st.session_state.translated_summary)
+            if st.session_state.translation_generated_for == target_language:
+                st.write(st.session_state.translated_summary)
+            else:
+                st.info(f'Click "Start Processing" to generate the translation in {target_language}.')
     
     with tab2:
         st.subheader("❓ Interactive Quiz")
@@ -1331,7 +1343,10 @@ def display_results(target_language):
             with st.expander("🔍 Debug: Quiz Data Format", expanded=True):
                 debug_quiz_format(st.session_state.quiz, "Original English Quiz Data")
                 
-                if st.session_state.translated_quiz:
+                if (
+    st.session_state.translation_generated_for == target_language
+    and st.session_state.translated_quiz
+):
                     st.write("---")
                     debug_quiz_format(st.session_state.translated_quiz, "Translated Quiz Data")
                     
@@ -1365,11 +1380,14 @@ def display_results(target_language):
         
         # Show English quiz as interactive version
         if st.session_state.quiz:
-            st.write("### 🇺🇸 English Interactive Quiz")
+            st.write("### English Interactive Quiz")
             quiz_result = display_interactive_quiz(st.session_state.quiz, target_language, "english")
             
             # Show translated quiz as ALSO interactive
-            if st.session_state.translated_quiz:
+            if (
+                st.session_state.translation_generated_for == target_language
+                and st.session_state.translated_quiz
+                ):
                 st.write(f"### 🌏 {target_language} Interactive Quiz")
                 st.info("Take the same quiz in your regional language!")
                 
@@ -1393,7 +1411,7 @@ def display_results(target_language):
                     with st.expander("📚 Reference: Translated Quiz", expanded=False):
                         st.text_area("Translated Quiz (Raw)", st.session_state.translated_quiz, height=300)
         else:
-            st.info("No quiz generated yet. Upload a document and process it first.")
+            st.info(f'Click "Start Processing" to generate the translation in {target_language}.')
     
     with tab3:
         st.subheader("📄 Full Document Text")
@@ -1407,8 +1425,18 @@ def display_results(target_language):
         
         with col2:
             st.write(f"**{target_language} Translation:**")
-            # Show full translated text
-            st.text_area("Translated Text", st.session_state.translated_text, height=400, disabled=True,label_visibility="collapsed", key="translated_full")
+            if st.session_state.translation_generated_for == target_language:
+                st.text_area(
+                    "Translated Text",
+                    st.session_state.translated_text,
+                    height=400,
+                    disabled=True,
+                    label_visibility="collapsed",
+                    key="translated_full"
+                )
+            else:
+                st.info(f'Click "Start Processing" to generate the translation in {target_language}.')
+            
     
     # Download options
     st.subheader("💾 Download Results")
@@ -1417,8 +1445,7 @@ def display_results(target_language):
     if st.session_state.extracted_text and st.session_state.translated_text:
         original_length = len(st.session_state.extracted_text)
         translated_length = len(st.session_state.translated_text)
-        st.info(f"📊 **Processing Stats**: Original: {original_length:,} chars → Translated: {translated_length:,} chars")
-    
+        
     col1, col2, col3 = st.columns([1, 1, 1])
     
     with col1:
