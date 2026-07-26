@@ -6,6 +6,8 @@ Translation is powered by Azure AI Translator.
 """
 
 # Import streamlit first
+from xmlrpc import client
+
 import streamlit as st
 
 # IMPORTANT: Set page config must be the first Streamlit command
@@ -281,6 +283,17 @@ def load_groq_llm():
         return None
 
 @st.cache_resource
+def load_embedding_model():
+    """Initialize Gemini Embedding Model"""
+    from google import genai
+
+    client = genai.Client(
+        api_key=os.getenv("GEMINI_API_KEY")
+    )
+
+    return client
+
+@st.cache_resource
 def setup_chromadb():
     """Setup ChromaDB for vector storage with robust fallbacks.
 
@@ -304,18 +317,17 @@ def setup_chromadb():
 
         # Initialize ChromaDB client with error handling
         try:
-            client = chromadb.Client()
+            client = chromadb.PersistentClient(path="./chroma_db")
         except Exception as client_error:
             st.warning(f"ChromaDB client creation failed, falling back to in-memory client: {client_error}")
             try:
-                client = chromadb.Client()
+                client = chromadb.PersistentClient(path="./chroma_db")
             except Exception as client_err2:
                 st.error(f"Unable to create any ChromaDB client: {client_err2}")
                 return None
 
         # Create or get collection with default settings (avoids type issues)
         collection = client.get_or_create_collection(name="document_chunks")
-        st.success("✅ ChromaDB vector storage initialized")
         return collection
 
     except Exception as e:
@@ -323,6 +335,24 @@ def setup_chromadb():
         return None
         
     # (cleaned up previous merge conflict remnants)
+
+def get_embedding(text: str, task_type="RETRIEVAL_DOCUMENT"):
+    try:
+        client = load_embedding_model()
+
+        response = client.models.embed_content(
+            model="models/gemini-embedding-001",
+            contents=text,
+            config={
+                "task_type": task_type
+            }
+)
+
+        return response.embeddings[0].values
+
+    except Exception as e:
+        st.error(f"Embedding generation failed: {e}")
+        return None
 
 def clear_chromadb():
     """Clear ChromaDB data in case of issues"""
@@ -829,10 +859,24 @@ def store_chunks_in_chromadb(chunks: List[str], document_name: str):
         ids = [f"{document_name}_{i}" for i in range(len(chunks))]
         
         # Add documents to collection with proper error handling
+        valid_chunks = []
+        valid_embeddings = []
+        valid_metadatas = []
+        valid_ids = []
+
+        for chunk, metadata, doc_id in zip(chunks, metadatas, ids):
+            emb = get_embedding(chunk, "RETRIEVAL_DOCUMENT")
+
+            if emb is not None:
+                valid_chunks.append(chunk)
+                valid_embeddings.append(emb)
+                valid_metadatas.append(metadata)
+                valid_ids.append(doc_id)
         collection.add(
-            documents=chunks,
-            metadatas=metadatas,
-            ids=ids
+            documents=valid_chunks,
+            embeddings=valid_embeddings,
+            metadatas=valid_metadatas,
+            ids=valid_ids
         )
         
         st.success(f"Stored {len(chunks)} chunks in vector database")
@@ -845,6 +889,43 @@ def store_chunks_in_chromadb(chunks: List[str], document_name: str):
         st.session_state.document_chunks[document_name] = chunks
         st.warning(f"ChromaDB error, using memory storage: {e}")
         st.info(f"Stored {len(chunks)} chunks in memory")
+
+def retrieve_relevant_chunks(query: str, n_results: int = 3):
+    """Retrieve the most relevant document chunks from ChromaDB"""
+
+    collection = setup_chromadb()
+
+    if collection is None:
+        return st.session_state.extracted_text[:2000]
+    try:
+        if collection.count() == 0:
+            return st.session_state.extracted_text[:2000]
+    except Exception:
+        return st.session_state.extracted_text[:2000]
+
+    query_embedding = get_embedding(query,task_type="RETRIEVAL_QUERY")
+    if query_embedding is None:
+        return st.session_state.extracted_text[:2000]
+
+    available = collection.count()
+    results = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=min(n_results, available),
+        include=["documents", "distances"]
+    )
+
+    if not results["documents"]:
+        return st.session_state.extracted_text[:2000]
+
+    # Check similarity BEFORE returning documents
+    if (
+        results["distances"]
+        and results["distances"][0]
+        and results["distances"][0][0] > 0.8
+    ):
+        return st.session_state.extracted_text[:2000]
+    return "\n\n".join(results["documents"][0])
+
 
 def debug_quiz_format(quiz_data, title="Quiz Debug"):
     """Debug function to show quiz data format"""
@@ -1283,12 +1364,28 @@ def process_user_query(query, target_language):
             if llm is None:
                 st.error("Failed to load LLM")
                 return
-                
-            prompt = ChatPromptTemplate.from_messages([
-                ("system", "You are a helpful assistant. Answer the user's question based on the context of the uploaded document."),
-                ("user", f"Document context: {st.session_state.extracted_text[:2000]}...\n\nUser question: {query}")
-            ])
             
+            context = retrieve_relevant_chunks(query)
+            prompt = ChatPromptTemplate.from_messages([
+            (
+                "system",
+                """You are a helpful assistant.
+
+        Answer ONLY using the provided document context.
+
+        If the answer cannot be found in the provided context, reply:
+
+        'I couldn't find that information in the uploaded document.'
+
+        Do not use outside knowledge or make assumptions.
+        """
+            ),
+            (
+                "user",
+                f"Document context:\n\n{context}\n\nUser question: {query}"
+            )
+        ])
+
             chain = prompt | llm
             response = chain.invoke({"text": query})
             

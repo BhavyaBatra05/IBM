@@ -43,6 +43,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 COPY . .
 
+RUN mkdir -p /app/chroma_db
 # Create a non-root user
 RUN useradd -m appuser && \
     chown -R appuser:appuser /app
