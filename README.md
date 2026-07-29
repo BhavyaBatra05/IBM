@@ -9,7 +9,7 @@
 ![LangChain](https://img.shields.io/badge/LangChain-Framework-green?style=for-the-badge)
 ![ChromaDB](https://img.shields.io/badge/ChromaDB-VectorDB-orange?style=for-the-badge)
 ![Docker](https://img.shields.io/badge/Docker-Container-blue?style=for-the-badge&logo=docker)
-![AWS](https://img.shields.io/badge/AWS-EC2-orange?style=for-the-badge&logo=amazonaws)
+![AWS](https://img.shields.io/badge/AWS-Elastic-Beanstalk-orange?style=for-the-badge&logo=amazonaws)
 
 ---
 
@@ -41,7 +41,7 @@ Automatically extracts and processes text for AI analysis.
 
 Generate concise and structured summaries using:
 
-- Groq Llama-3.3-70B
+- Groq openai/gpt-oss-120b
 
 The summaries preserve important concepts while reducing reading time.
 
@@ -99,10 +99,10 @@ The project is fully containerized using Docker for consistent deployment across
 
 Designed to run on:
 
-- AWS EC2 Free Tier
-- Azure Virtual Machines
-- Railway
-- Any Docker-compatible server
+- AWS Elastic Beanstalk
+- Docker
+- Railway (optional)
+- Azure VM (optional)
 
 ---
 
@@ -147,13 +147,13 @@ Designed to run on:
 |-----------|------------|
 | Frontend | Streamlit |
 | Backend | Python |
-| LLM | Groq (Llama-3.3-70B) |
+| LLM | Groq (openai/gpt-oss-120b) |
 | Translation | Azure AI Translator |
 | RAG Framework | LangChain |
 | Vector Database | ChromaDB |
 | Document Parsing | PyPDF, python-docx |
 | Deployment | Docker |
-| Cloud | AWS EC2 |
+| Cloud | AWS Elastic Beanstalk |
 
 ---
 
@@ -200,7 +200,7 @@ Azure AI Translator performs automatic language translation with high accuracy w
 
 ✅ Dockerized deployment
 
-✅ AWS EC2 compatible
+✅ AWS Elastic Beanstalk compatible
 
 ✅ Modern cloud-native architecture
 
@@ -222,9 +222,7 @@ Regional-Language-Study-Bot/
 │
 ├── assets/                         # Images & screenshots
 │
-├── README.md
-│
-└── requirements_streamlit.txt      # (Optional legacy file)
+└── README.md
 ```
 
 ---
@@ -377,83 +375,43 @@ http://localhost:8501
 
 ---
 
-# ☁ Deploying on AWS EC2
+# ☁ Deploying on AWS Elastic Beanstalk
 
-The application has been designed for deployment on AWS EC2 Free Tier.
-
----
-
-## Step 1
-
-Launch an Ubuntu EC2 instance.
-
-Recommended:
-
-- Ubuntu 24.04 LTS
-- t2.micro (Free Tier)
+The application has been designed for deployment on AWS Elastic Beanstalk Free Tier.
 
 ---
 
-## Step 2
+# ☁ Deploying on AWS Elastic Beanstalk
 
-Install Docker
+1. Package the project into a ZIP archive containing:
 
-```bash
-sudo apt update
+- Dockerfile
+- requirements.txt
+- run_streamlit_bot.py
+- streamlit_study_bot.py
+- .platform/
+- .streamlit/
 
-sudo apt install docker.io -y
-```
+2. Create a Docker Elastic Beanstalk environment.
 
----
+3. Configure the required Environment Properties:
 
-## Step 3
+- GROQ_API_KEY
+- AZURE_TRANSLATOR_KEY
+- AZURE_TRANSLATOR_REGION
+- AZURE_TRANSLATOR_ENDPOINT
 
-Enable Docker
+4. Upload the ZIP archive using **Upload and Deploy**.
 
-```bash
-sudo systemctl enable docker
+5. After deployment completes, open the Elastic Beanstalk URL.
 
-sudo systemctl start docker
-```
-
----
-
-## Step 4
-
-Transfer the project
-
-Clone your GitHub repository
-
-or
-
-Copy the Docker image.
-
----
-
-## Step 5
-
-Run
-
-```bash
-docker run \
---env-file .env \
--p 8501:8501 \
-ibm-study-bot
-```
-
----
-
-## Step 6
-
-Open
+Example:
 
 ```
-http://<EC2-PUBLIC-IP>:8501
+http://regional-study-bot.ap-south-1.elasticbeanstalk.com
 ```
 
 Your application is now live.
-
----
 
 # ⚙ Configuration
 
@@ -654,7 +612,7 @@ This enables semantic search during Question Answering.
 
 ## Summary Generation
 
-Groq Llama 3.3 generates concise summaries while preserving important concepts.
+Groq openai/gpt-oss-120b generates concise summaries while preserving important concepts.
 
 The summary focuses on:
 
@@ -743,7 +701,7 @@ This improves answer quality and reduces hallucinations.
 | 16 Indian Languages | ✅ |
 | ChromaDB Storage | ✅ |
 | Docker Deployment | ✅ |
-| AWS EC2 Deployment | ✅ |
+| AWS Elastic Beanstalk Deployment | ✅ |
 
 ---
 
@@ -920,7 +878,7 @@ This project aims to bridge that gap by using Artificial Intelligence to generat
 - Retrieval-Augmented Document Q&A
 - Azure AI Translation
 - Docker Deployment
-- AWS EC2 Compatibility
+- AWS Elastic Beanstalk Compatibility
 - ChromaDB Vector Search
 
 ---
@@ -1025,7 +983,7 @@ Track
 
 ✔ Dockerized Deployment
 
-✔ AWS EC2 Ready
+✔ AWS Elastic Beanstalk Ready
 
 ✔ Modular Architecture
 
@@ -1043,12 +1001,12 @@ Track
 |----------|------------|
 | Language | Python |
 | Frontend | Streamlit |
-| LLM | Groq Llama 3.3-70B |
+| LLM | Groq openai/gpt-oss-120b |
 | Translation | Azure AI Translator |
 | Framework | LangChain |
 | Vector Database | ChromaDB |
 | Containerization | Docker |
-| Cloud | AWS EC2 |
+| Cloud | AWS Elastic Beanstalk  |
 | Version Control | Git & GitHub |
 
 ---
@@ -1063,7 +1021,7 @@ This project demonstrates practical experience with:
 - Cloud AI Services
 - REST APIs
 - Docker
-- AWS EC2 Deployment
+- AWS Elastic Beanstalk  Deployment
 - Environment Variable Management
 - Streamlit Development
 - Production-ready AI Application Design
